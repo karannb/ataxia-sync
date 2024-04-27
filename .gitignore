@@ -1,0 +1,6 @@
+# user defined
+data/
+ckpts/
+save/
+__pycache__/
+*temp*
