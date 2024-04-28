@@ -199,6 +199,7 @@ class TruncatedModel(Model):
             features = x.flatten(1)
             
         preds = self.head(features)
+        preds = preds.view(x.size(0), -1)
         
         return preds
 

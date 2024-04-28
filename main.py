@@ -1,5 +1,7 @@
 import os
 import wandb
+import random
+import numpy as np
 import pandas as pd
 from typing import Tuple
 from argparse import ArgumentParser
@@ -26,6 +28,7 @@ class TrainArgs:
     eval_every: int = 10
     save_every: int = 50
     patience: int = 10
+    seed: int = 42
 
 
 class ModelArgs:
@@ -35,13 +38,32 @@ class ModelArgs:
     ckpt_path: str = "models/st_gcn.kinetics.pt"
 
 
+def seed_all(seed: int):
+    """Setup random state from a seed for `torch`, `random` and optionally `numpy` (if can be imported).
+
+    Args:
+        seed: Random state seed
+    """
+    random.seed(seed)
+    torch.manual_seed(seed)
+
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+    try:
+        import numpy as np
+        np.random.seed(seed)
+    except ImportError:
+        pass
+
+
 def parse_args() -> Tuple[TrainArgs, ModelArgs]:
 
     parser = ArgumentParser()
 
     # Logging params
     parser.add_argument(
-        "--with_trackng",
+        "--with_tracking",
         default=False,
         action="store_true",
         help="Wether to track with w&b or not.",
@@ -55,26 +77,27 @@ def parse_args() -> Tuple[TrainArgs, ModelArgs]:
     # Training params
     parser.add_argument("-b", "--batch_size", default=256, help="Select Batch Size.")
     parser.add_argument(
-        "-e", "--epochs", default=1000, help="Number of epochs to train for."
+        "-e", "--epochs", type=int, default=1000, help="Number of epochs to train for."
     )
-    parser.add_argument("--lr", default=3e-5, help="Select Learning Rate.")
+    parser.add_argument("--lr", type=float, default=3e-5, help="Select Learning Rate.")
     parser.add_argument(
-        "--weight_decay", default=0.0, help="Weight Decay for all parameters."
-    )
-    parser.add_argument(
-        "--folds", default=10, help="Number of folds for cross validation."
+        "--weight_decay", type=float, default=0.0, help="Weight Decay for all parameters."
     )
     parser.add_argument(
-        "--eval_every", default=10, help="Evaluate every eval_every epochs."
+        "--folds", type=int, default=10, help="Number of folds for cross validation."
     )
     parser.add_argument(
-        "--save_every", default=50, help="Save model every save_every epochs."
+        "--eval_every", type=int, default=10, help="Evaluate every eval_every epochs."
     )
-    parser.add_argument("--patience", default=10, help="Early stopping patience.")
+    parser.add_argument(
+        "--save_every", type=int, default=50, help="Save model every save_every epochs."
+    )
+    parser.add_argument("--patience", type=int, default=10, help="Early stopping patience.")
+    parser.add_argument("--seed", type=int, default=42, help="Seeds the experiment.")
 
     # Model params
     parser.add_argument(
-        "--layer_num", default=4, help="Decides which block of STGCN is to be used."
+        "--layer_num", type=int, default=4, help="Decides which block of STGCN is to be used."
     )
     parser.add_argument(
         "--use_mlp",
@@ -90,7 +113,7 @@ def parse_args() -> Tuple[TrainArgs, ModelArgs]:
     )
     parser.add_argument(
         "--ckpt_path",
-        default="models/st_gcn.kinetics.pt",
+        default="ckpts/st_gcn.kinetics.pt",
         help="Path to the checkpoint file.",
     )
 
@@ -107,6 +130,9 @@ def parse_args() -> Tuple[TrainArgs, ModelArgs]:
     train_args.eval_every = args.eval_every
     train_args.save_every = args.save_every
     train_args.patience = args.patience
+    train_args.seed = args.seed
+    
+    seed_all(train_args.seed)
 
     model_args = ModelArgs()
     model_args.layer_num = args.layer_num
@@ -126,15 +152,17 @@ def validate(model: nn.Module, loader: DataLoader) -> tuple:
     for i, (X, y) in enumerate(loader):
 
         if torch.cuda.is_available():
-            X = X.cuda(nonblocking=True)
-            y = y.cuda(nonblocking=True)
+            X = X.cuda()
+            y = y.cuda()
 
-        features = F.softmax(model(X), dim=1)
+        features = F.softmax(model(X), dim=-1)
         test_loss = F.cross_entropy(features, y)
         loss.append(test_loss.item())
         preds.append(features.argmax(dim=1).cpu().numpy())
         labels.append(y.cpu().numpy())
-
+    
+    preds = np.concatenate(preds)
+    labels = np.concatenate(labels)
     return preds, labels, sum(loss) / len(loss)
 
 
@@ -142,17 +170,19 @@ def main():
 
     # Parse the arguments
     train_args, model_args = parse_args()
-    ovr_results = {"test_acc": [], "test_f1": [], "test_auc": []}
+    ovr_results = {"Test Accuracy": [], "Test F1": [], "Test AUC": []}
 
-    ovr_save_pth = f"epoch_{train_args.epochs}_lr_{train_args.lr}_wd_{train_args.weight_decay}_folds_{train_args.folds}_layer_{model_args.layer_num}_mlp_{model_args.use_mlp}_ensemble_{model_args.ensemble}.pth"
-    if not os.path.exists(ovr_save_pth):
+    ovr_save_pth = f"epoch_{train_args.epochs}_seed_{train_args.seed}_lr_{train_args.lr}_wd_{train_args.weight_decay}_folds_{train_args.folds}_layer_{model_args.layer_num}_mlp_{model_args.use_mlp}_ensemble_{model_args.ensemble}/"
+    if not os.path.exists("save/" + ovr_save_pth):
         os.mkdir("save/" + ovr_save_pth)
+        
+    ovr_log = open(f"save/{ovr_save_pth}/ovr.log", "w")
 
-    for fold in train_args.folds:
+    for fold in range(train_args.folds):
 
         fold_save_pth = f"fold_{fold}"
-        if not os.path.exists(fold_save_pth):
-            os.mkdir("save/" + fold_save_pth)
+        if not os.path.exists("save/" + ovr_save_pth + fold_save_pth):
+            os.mkdir("save/" + ovr_save_pth + fold_save_pth)
 
         log = open(f"save/{ovr_save_pth}/{fold_save_pth}/training.log", "w")
 
@@ -175,6 +205,8 @@ def main():
         model.load_state_dict(
             state_dict, strict=False
         )  # strict=False because we are loading a subset of the model
+        if torch.cuda.is_available():
+            model = model.to("cuda:0")
 
         # Define the optimizer
         criterion = torch.nn.CrossEntropyLoss()
@@ -186,7 +218,9 @@ def main():
         if train_args.with_tracking:
             wandb.init(
                 project="ataxia",
-                config={**vars(train_args), **vars(model_args), "fold": fold},
+                config={**vars(train_args), **vars(model_args)},
+                name=str(fold),
+                group=ovr_save_pth
             )
 
         best_model = None
@@ -195,11 +229,13 @@ def main():
 
         # Training loop
         for epoch in range(train_args.epochs):
+            model.train()
             losses = []
             for _, (X, y) in enumerate(train_loader):
-                X = X.cuda()
-                y = y.cuda()
-                features = F.softmax(model(X), dim=1)
+                if torch.cuda.is_available():
+                    X = X.cuda()
+                    y = y.cuda()
+                features = F.softmax(model(X), dim=-1)
                 loss = criterion(features, y)
                 optimizer.zero_grad()
                 loss.backward()
@@ -210,9 +246,10 @@ def main():
                 wandb.log({"Train Loss": sum(losses) / len(losses)}, step=epoch)
 
             if epoch % train_args.log_every == 0:
-                to_print = f"Epoch : {epoch}, Loss : {sum(losses)/len(losses)}"
-                print(to_print)
+                to_print = f"Fold : {fold}, Epoch : {epoch}, Loss : {sum(losses)/len(losses)}\n"
+                print(to_print, end="")
                 log.write(to_print)
+                ovr_log.write(to_print)
 
             if epoch % train_args.save_every == 0:
                 torch.save(
@@ -226,11 +263,8 @@ def main():
                 acc = accuracy_score(labels, preds)
                 f1 = f1_score(labels, preds)
                 auc = roc_auc_score(labels, preds)
-                ovr_results["Test Accuracy"].append(acc)
-                ovr_results["Test F1"].append(f1)
-                ovr_results["Test AUC"].append(auc)
-                to_print = f"Epoch : {epoch}, Test Accuracy : {acc}, Test F1 : {f1}, Test AUC : {auc}"
-                print(to_print)
+                to_print = f"Fold : {fold}, Epoch : {epoch}, Test Accuracy : {acc}, Test F1 : {f1}, Test AUC : {auc}\n"
+                print(to_print, end="")
                 log.write(to_print)
                 if train_args.with_tracking:
                     wandb.log(
@@ -258,7 +292,10 @@ def main():
                         f"save/{ovr_save_pth}/{fold_save_pth}/best_model.pth",
                     )
                     log.write(
-                        f"Best model saved at epoch {epoch} with F1 score of {f1}"
+                        f"Best model saved at epoch {epoch} with F1 score of {f1}\n"
+                    )
+                    ovr_log.write(
+                        f"Best model saved at epoch {epoch} with F1 score of {f1}\n"
                     )
                 else:
                     patience -= 1
@@ -275,21 +312,25 @@ def main():
         acc = accuracy_score(labels, preds)
         f1 = f1_score(labels, preds)
         auc = roc_auc_score(labels, preds)
-        to_print = f"Final Evaluation \n Test Accuracy : {acc}, Test F1 : {f1}, Test AUC : {auc}"
-        print(to_print)
+        to_print = f"Final Evaluation\nTest Accuracy : {acc}, Test F1 : {f1}, Test AUC : {auc}\n"
+        print(to_print, end="")
         log.write(to_print)
+        ovr_log.write(to_print)
         log.close()
+        wandb.finish()
 
-        ovr_results["test_acc"].append(acc)
-        ovr_results["test_f1"].append(f1)
-        ovr_results["test_auc"].append(auc)
+        ovr_results["Test Accuracy"].append(acc)
+        ovr_results["Test F1"].append(f1)
+        ovr_results["Test AUC"].append(auc)
 
     results = pd.DataFrame(ovr_results)
     results.to_csv(f"save/{ovr_save_pth}/results.csv")
-    mean_acc = results["test_acc"].mean()
-    mean_f1 = results["test_f1"].mean()
-    mean_auc = results["test_auc"].mean()
+    mean_acc = results["Test Accuracy"].mean()
+    mean_f1 = results["Test F1"].mean()
+    mean_auc = results["Test AUC"].mean()
+    to_print = f"Mean Test Accuracy : {mean_acc}, Mean Test F1 : {mean_f1}, Mean Test AUC : {mean_auc}\n"
+    print(to_print, end="")
+    ovr_log.write(to_print)
 
-    print(
-        f"Mean Test Accuracy : {mean_acc}, Mean Test F1 : {mean_f1}, Mean Test AUC : {mean_auc}"
-    )
+if __name__ == "__main__":
+    main()

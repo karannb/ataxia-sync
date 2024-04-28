@@ -2,5 +2,7 @@
 data/
 ckpts/
 save/
+logs/
 __pycache__/
+wandb/
 *temp*
