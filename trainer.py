@@ -4,11 +4,9 @@ import torch.nn.functional as F
 
 import wandb
 import numpy as np
-from dataset import ATAXIA
+from dataset import ATAXIA, splitter
 from model.st_gcn import Model
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, roc_auc_score
-
-MAX_LAYERS = 9
 
 LAYER2DIM = {
     0 : 64,

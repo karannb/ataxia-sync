@@ -1,15 +1,31 @@
-'''
+"""
 Adapted from https://github.com/yysijie/st-gcn
 Author : karannb
-'''
+"""
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.autograd import Variable
 
-from utils.tgcn import ConvTemporalGraphical
-from utils.graph import Graph
+from model.utils.tgcn import ConvTemporalGraphical
+from model.utils.graph import Graph
+from model.utils.pooler import custom_pool_2d
+
+LAYER2DIM = {
+    0: 64,
+    1: 64,
+    2: 64,
+    3: 64,
+    4: 128,
+    5: 128,
+    6: 128,
+    7: 256,
+    8: 256,
+    9: 256,
+    -1: 256,
+    "all": 400,
+}
+
 
 class Model(nn.Module):
     r"""Spatial temporal graph convolutional networks.
@@ -31,52 +47,59 @@ class Model(nn.Module):
             :math:`M_{in}` is the number of instance in a frame.
     """
 
-    def __init__(self, in_channels, num_class, graph_args,
-                 edge_importance_weighting, return_hidden_states=False,
-                 **kwargs):
+    def __init__(
+        self,
+        in_channels,
+        num_class,
+        graph_args,
+        edge_importance_weighting,
+        return_hidden_states=False,
+        **kwargs
+    ):
         super().__init__()
 
         # load graph
         self.graph = Graph(**graph_args)
         A = torch.tensor(self.graph.A, dtype=torch.float32, requires_grad=False)
-        self.register_buffer('A', A)
+        self.register_buffer("A", A)
 
         # build networks
         spatial_kernel_size = A.size(0)
         temporal_kernel_size = 9
         kernel_size = (temporal_kernel_size, spatial_kernel_size)
         self.data_bn = nn.BatchNorm1d(in_channels * A.size(1))
-        kwargs0 = {k: v for k, v in kwargs.items() if k != 'dropout'}
-        self.st_gcn_networks = nn.ModuleList((
-            st_gcn(in_channels, 64, kernel_size, 1, residual=False, **kwargs0),
-            st_gcn(64, 64, kernel_size, 1, **kwargs),
-            st_gcn(64, 64, kernel_size, 1, **kwargs),
-            st_gcn(64, 64, kernel_size, 1, **kwargs),
-            st_gcn(64, 128, kernel_size, 2, **kwargs),
-            st_gcn(128, 128, kernel_size, 1, **kwargs),
-            st_gcn(128, 128, kernel_size, 1, **kwargs),
-            st_gcn(128, 256, kernel_size, 2, **kwargs),
-            st_gcn(256, 256, kernel_size, 1, **kwargs),
-            st_gcn(256, 256, kernel_size, 1, **kwargs),
-        ))
+        kwargs0 = {k: v for k, v in kwargs.items() if k != "dropout"}
+        self.st_gcn_networks = nn.ModuleList(
+            (
+                st_gcn(in_channels, 64, kernel_size, 1, residual=False, **kwargs0),
+                st_gcn(64, 64, kernel_size, 1, **kwargs),
+                st_gcn(64, 64, kernel_size, 1, **kwargs),
+                st_gcn(64, 64, kernel_size, 1, **kwargs),
+                st_gcn(64, 128, kernel_size, 2, **kwargs),
+                st_gcn(128, 128, kernel_size, 1, **kwargs),
+                st_gcn(128, 128, kernel_size, 1, **kwargs),
+                st_gcn(128, 256, kernel_size, 2, **kwargs),
+                st_gcn(256, 256, kernel_size, 1, **kwargs),
+                st_gcn(256, 256, kernel_size, 1, **kwargs),
+            )
+        )
 
         # initialize parameters for edge importance weighting
         if edge_importance_weighting:
-            self.edge_importance = nn.ParameterList([
-                nn.Parameter(torch.ones(self.A.size()))
-                for i in self.st_gcn_networks
-            ])
+            self.edge_importance = nn.ParameterList(
+                [nn.Parameter(torch.ones(self.A.size())) for i in self.st_gcn_networks]
+            )
         else:
             self.edge_importance = [1] * len(self.st_gcn_networks)
 
         # fcn for prediction
         self.fcn = nn.Conv2d(256, num_class, kernel_size=1)
-        
+
         # User-defined
         self.return_hidden_states = return_hidden_states
 
     def forward(self, x):
-        
+
         hidden_states = {}
 
         # data normalization
@@ -103,10 +126,10 @@ class Model(nn.Module):
         # prediction
         x = self.fcn(x)
         x = x.view(x.size(0), -1)
-        
+
         if self.return_hidden_states:
             return x, hidden_states
-        
+
         else:
             return x
 
@@ -134,6 +157,52 @@ class Model(nn.Module):
 
         return output, feature
 
+
+class TruncatedModel(Model):
+    r"""Truncated STGCN which (ideally) uses pretrained weights from the original model,
+    and return activations till a certain layer.
+
+    Args:
+        layer (int): The layer till which the activations are to be returned.
+
+    Shape:
+        - Input: :math:`(N, in_channels, T_{in}, V_{in}, M_{in})`
+        - Output: :math:`(N, num_class)` where
+            :math:`N` is a batch size,
+            :math:`T_{in}` is a length of input sequence,
+            :math:`V_{in}` is the number of graph nodes,
+            :math:`M_{in}` is the number of instance in a frame.
+    """
+
+    def __init__(self, layer=4, use_mlp=False):
+
+        super().__init__(
+            in_channels=3,
+            num_class=400,
+            graph_args={"layout": "openpose", "strategy": "spatial"},
+            edge_importance_weighting=True,
+            return_hidden_states=True,
+        )
+        self.layer = layer
+
+        if use_mlp:
+            self.head = nn.Linear(LAYER2DIM[layer], 2)
+        else:
+            self.head = nn.Conv2d(LAYER2DIM[layer], 2, kernel_size=1)
+
+    def forward(self, x: torch.Tensor):
+
+        x, hidden_states = super().forward(x)
+        if isinstance(self.layer, int):
+            features = custom_pool_2d(hidden_states[self.layer], x.size(0), 1)
+        else:
+            features = x.flatten(1)
+            
+        preds = self.head(features)
+        
+        return preds
+
+
 class st_gcn(nn.Module):
     r"""Applies a spatial temporal graph convolution over an input graph sequence.
 
@@ -159,21 +228,16 @@ class st_gcn(nn.Module):
 
     """
 
-    def __init__(self,
-                 in_channels,
-                 out_channels,
-                 kernel_size,
-                 stride=1,
-                 dropout=0,
-                 residual=True):
+    def __init__(
+        self, in_channels, out_channels, kernel_size, stride=1, dropout=0, residual=True
+    ):
         super().__init__()
 
         assert len(kernel_size) == 2
         assert kernel_size[0] % 2 == 1
         padding = ((kernel_size[0] - 1) // 2, 0)
 
-        self.gcn = ConvTemporalGraphical(in_channels, out_channels,
-                                         kernel_size[1])
+        self.gcn = ConvTemporalGraphical(in_channels, out_channels, kernel_size[1])
 
         self.tcn = nn.Sequential(
             nn.BatchNorm2d(out_channels),
@@ -197,11 +261,7 @@ class st_gcn(nn.Module):
 
         else:
             self.residual = nn.Sequential(
-                nn.Conv2d(
-                    in_channels,
-                    out_channels,
-                    kernel_size=1,
-                    stride=(stride, 1)),
+                nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=(stride, 1)),
                 nn.BatchNorm2d(out_channels),
             )
 
