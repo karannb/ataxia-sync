@@ -1,5 +1,4 @@
 import os
-import wandb
 import random
 import numpy as np
 import pandas as pd
@@ -170,6 +169,8 @@ def main():
 
     # Parse the arguments
     train_args, model_args = parse_args()
+    if train_args.with_tracking:
+        import wandb
     ovr_results = {"Test Accuracy": [], "Test F1": [], "Test AUC": []}
 
     ovr_save_pth = f"epoch_{train_args.epochs}_seed_{train_args.seed}_lr_{train_args.lr}_wd_{train_args.weight_decay}_folds_{train_args.folds}_layer_{model_args.layer_num}_mlp_{model_args.use_mlp}_ensemble_{model_args.ensemble}/"
