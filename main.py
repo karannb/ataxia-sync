@@ -26,7 +26,7 @@ class TrainArgs:
     folds: int = 10
     eval_every: int = 10
     save_every: int = 50
-    patience: int = 10
+    patience: int = 50
     seed: int = 42
 
 
@@ -92,7 +92,7 @@ def parse_args() -> Tuple[TrainArgs, ModelArgs]:
     parser.add_argument(
         "--save_every", type=int, default=50, help="Save model every save_every epochs."
     )
-    parser.add_argument("--patience", type=int, default=10, help="Early stopping patience.")
+    parser.add_argument("--patience", type=int, default=50, help="Early stopping patience.")
     parser.add_argument("--seed", type=int, default=42, help="Seeds the experiment.")
 
     # Model params
@@ -302,6 +302,10 @@ def main():
                 else:
                     patience -= 1
                     if patience == 0:
+                        to_print = "EXITING THROUGH AN EARLY STOP.\n"
+                        print(to_print, end="")
+                        log.write(to_print)
+                        ovr_log.write(to_print)
                         break
 
         # Final evaluation on the best model
@@ -333,6 +337,7 @@ def main():
     to_print = f"Mean Test Accuracy : {mean_acc}, Mean Test F1 : {mean_f1}, Mean Test AUC : {mean_auc}\n"
     print(to_print, end="")
     ovr_log.write(to_print)
+    ovr_log.close()
 
 if __name__ == "__main__":
     main()
