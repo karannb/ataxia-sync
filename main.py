@@ -230,7 +230,7 @@ def main():
 
         best_model = None
         patience = train_args.patience
-        best_f1 = 0.0
+        best_acc = 0.0
 
         # Training loop
         for epoch in range(train_args.epochs):
@@ -271,6 +271,7 @@ def main():
                 to_print = f"Fold : {fold}, Epoch : {epoch}, Test Accuracy : {acc}, Test F1 : {f1}, Test AUC : {auc}\n"
                 print(to_print, end="")
                 log.write(to_print)
+                ovr_log.write(to_print)
                 if train_args.with_tracking:
                     wandb.log(
                         {
@@ -282,9 +283,9 @@ def main():
                         step=epoch,
                     )
 
-                if f1 > best_f1:
+                if acc > best_acc:
                     patience = train_args.patience
-                    best_f1 = f1
+                    best_acc = acc
                     best_model = {
                         "model": model.state_dict(),
                         "epoch": epoch,
@@ -297,10 +298,10 @@ def main():
                         f"save/{ovr_save_pth}/{fold_save_pth}/best_model.pth",
                     )
                     log.write(
-                        f"Best model saved at epoch {epoch} with F1 score of {f1}\n"
+                        f"Best model saved at epoch {epoch} with Accuracy of {acc}\n"
                     )
                     ovr_log.write(
-                        f"Best model saved at epoch {epoch} with F1 score of {f1}\n"
+                        f"Best model saved at epoch {epoch} with Accuracy of {acc}\n"
                     )
                 else:
                     patience -= 1
