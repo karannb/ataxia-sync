@@ -1,5 +1,6 @@
 import os
 import random
+import pickle
 import numpy as np
 import pandas as pd
 from typing import Tuple
@@ -190,6 +191,8 @@ def main():
 
         # Load the data
         train_inds, test_inds = splitter(149)  # FIXME : Hardcoded
+        with open("save/" + ovr_save_pth + fold_save_pth + "/inds.pkl", "wb") as f:
+            pickle.dump((train_inds, test_inds), f)
         train_data = ATAXIA(train_inds)
         test_data = ATAXIA(test_inds)
 
