@@ -70,11 +70,12 @@ def parse_args() -> Tuple[TrainArgs, ModelArgs]:
     parser.add_argument(
         "--log_every",
         default=10,
+        type=int,
         help="Logs to w&b (and terminal) every log_every epochs.",
     )
 
     # Training params
-    parser.add_argument("-b", "--batch_size", default=256, help="Select Batch Size.")
+    parser.add_argument("-b", "--batch_size", type=int, default=256, help="Select Batch Size.")
     parser.add_argument(
         "-e", "--epochs", type=int, default=1000, help="Number of epochs to train for."
     )
