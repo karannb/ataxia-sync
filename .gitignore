@@ -1,6 +1,7 @@
 # user defined
 data/
 ckpts/
+plots/
 save/
 logs/
 __pycache__/
