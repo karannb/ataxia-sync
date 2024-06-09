@@ -11,10 +11,10 @@ def splitter(length) -> tuple:
 
 class ATAXIA(Dataset):
 
-    def __init__(self, inds=None):
+    def __init__(self, inds=None, data_path="data/"):
         # Load data
-        self.data = np.load("data/openpose/X_combined.npy")
-        self.labels = np.load("data/openpose/y_combined.npy")
+        self.data = np.load(f"{data_path}/X_combined.npy")
+        self.labels = np.load(f"{data_path}/y_combined.npy")
 
         # Preprocess data
         self.preprocess()
