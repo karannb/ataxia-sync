@@ -180,6 +180,9 @@ def main():
         os.mkdir("save/" + ovr_save_pth)
         
     ovr_log = open(f"save/{ovr_save_pth}/ovr.log", "w")
+    
+    # Overall dataset
+    data = pd.read_csv("data/overall.csv", index_col=None)
 
     for fold in range(train_args.folds):
 
@@ -190,7 +193,9 @@ def main():
         log = open(f"save/{ovr_save_pth}/{fold_save_pth}/training.log", "w")
 
         # Load the data
-        train_inds, test_inds = splitter(146)  # FIXME : Hardcoded
+        train_inds, test_inds = splitter(len(data))
+        train_inds = data["video_num"][train_inds]
+        test_inds = data["video_num"][test_inds]
         with open("save/" + ovr_save_pth + fold_save_pth + "/inds.pkl", "wb") as f:
             pickle.dump((train_inds, test_inds), f)
         train_data = ATAXIA(train_inds)
@@ -254,7 +259,9 @@ def main():
                 to_print = f"Fold : {fold}, Epoch : {epoch}, Loss : {sum(losses)/len(losses)}\n"
                 print(to_print, end="")
                 log.write(to_print)
+                log.flush()
                 ovr_log.write(to_print)
+                ovr_log.flush()
 
             if epoch % train_args.save_every == 0:
                 torch.save(
@@ -271,7 +278,9 @@ def main():
                 to_print = f"Fold : {fold}, Epoch : {epoch}, Test Accuracy : {acc}, Test F1 : {f1}, Test AUC : {auc}\n"
                 print(to_print, end="")
                 log.write(to_print)
+                log.flush()
                 ovr_log.write(to_print)
+                ovr_log.flush()
                 if train_args.with_tracking:
                     wandb.log(
                         {
@@ -300,16 +309,20 @@ def main():
                     log.write(
                         f"Best model saved at epoch {epoch} with Accuracy of {acc}\n"
                     )
+                    log.flush()
                     ovr_log.write(
                         f"Best model saved at epoch {epoch} with Accuracy of {acc}\n"
                     )
+                    ovr_log.flush()
                 else:
                     patience -= 1
                     if patience == 0:
                         to_print = "EXITING THROUGH AN EARLY STOP.\n"
                         print(to_print, end="")
                         log.write(to_print)
+                        log.flush()
                         ovr_log.write(to_print)
+                        ovr_log.flush()
                         break
 
         # Final evaluation on the best model
@@ -325,7 +338,9 @@ def main():
         to_print = f"Final Evaluation\nTest Accuracy : {acc}, Test F1 : {f1}, Test AUC : {auc}\n"
         print(to_print, end="")
         log.write(to_print)
+        log.flush()
         ovr_log.write(to_print)
+        ovr_log.flush()
         log.close()
         if train_args.with_tracking:
             wandb.finish()
@@ -342,7 +357,7 @@ def main():
     to_print = f"Mean Test Accuracy : {mean_acc}, Mean Test F1 : {mean_f1}, Mean Test AUC : {mean_auc}\n"
     print(to_print, end="")
     ovr_log.write(to_print)
-    ovr_log.close()
+    ovr_log.close() # .close() will anyways flush
 
 if __name__ == "__main__":
     main()

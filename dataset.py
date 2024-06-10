@@ -1,3 +1,4 @@
+import os
 import torch
 import numpy as np
 from torch.utils.data import Dataset
@@ -6,23 +7,39 @@ from torch.utils.data import Dataset
 def splitter(length) -> tuple:
     inds = np.arange(length)
     np.random.shuffle(inds)
-    return inds[:116], inds[116:]
+    train2test = int(length * 0.8)
+    return inds[:train2test], inds[train2test:]
 
 
 class ATAXIA(Dataset):
 
-    def __init__(self, inds=None, data_path="data/"):
+    def __init__(self, inds=None, data_path="data"):
+        
+        # Get the split
+        self.data = []
+        self.labels = []
+        for ind in inds:
+            label = np.load(f"{data_path}/final_keypoints/{ind}/label.npy")
+            for gait in os.listdir(f"{data_path}/gait_cycles/{ind}"):
+                cycle = np.load(f"{data_path}/gait_cycles/{ind}/{gait}")
+                data = cycle.copy()
+                while data.shape[0] < 75:
+                    data = np.concatenate([data, cycle], axis=0)
+                data = data[:75]
+                self.data.append(data)
+                self.labels.append(label)
+                
         # Load data
-        self.data = np.load(f"{data_path}/X_combined.npy")
-        self.labels = np.load(f"{data_path}/y_combined.npy")
+        self.data = np.array(self.data) # np.load(f"{data_path}/X_combined.npy")
+        self.labels = np.array(self.labels) # np.load(f"{data_path}/y_combined.npy")
 
         # Preprocess data
         self.preprocess()
 
         # Load the split
-        assert inds is not None, "Please provide the split indices"
-        self.data = self.data[inds]
-        self.labels = self.labels[inds]
+        # assert inds is not None, "Please provide the split indices"
+        # self.data = self.data[inds]
+        # self.labels = self.labels[inds]
 
         # print distribution of labels
         print("Distribution of labels in the set :")
@@ -52,7 +69,10 @@ class ATAXIA(Dataset):
         self.labels = torch.tensor(self.labels, dtype=torch.int64)
 
 
-if __name__ == '__main__':
-    train, test = splitter(146)
-    dataset = ATAXIA(train)
-    print(dataset[0][0].shape)
+# if __name__ == '__main__':
+#     data = pd.read_csv("data/overall.csv", index_col=None)
+#     train, test = splitter(len(data))
+#     train = data["video_num"].iloc[train]
+#     test = data["video_num"].iloc[test]
+#     dataset = ATAXIA(train)
+#     dataset2 = ATAXIA(test)
