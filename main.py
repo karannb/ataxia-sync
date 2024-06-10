@@ -175,7 +175,7 @@ def main():
         import wandb
     ovr_results = {"Test Accuracy": [], "Test F1": [], "Test AUC": []}
 
-    ovr_save_pth = f"epoch_{train_args.epochs}_seed_{train_args.seed}_lr_{train_args.lr}_wd_{train_args.weight_decay}_folds_{train_args.folds}_layer_{model_args.layer_num}_mlp_{model_args.use_mlp}_ensemble_{model_args.ensemble}/"
+    ovr_save_pth = f"epoch_{train_args.epochs}_seed_{train_args.seed}_lr_{train_args.lr}_bs_{train_args.batch_size}_wd_{train_args.weight_decay}_folds_{train_args.folds}_layer_{model_args.layer_num}_mlp_{model_args.use_mlp}_ensemble_{model_args.ensemble}/"
     if not os.path.exists("save/" + ovr_save_pth):
         os.mkdir("save/" + ovr_save_pth)
         
@@ -204,7 +204,7 @@ def main():
         train_loader = DataLoader(
             train_data, batch_size=train_args.batch_size, shuffle=True
         )
-        test_loader = DataLoader(test_data, batch_size=256, shuffle=False)
+        test_loader = DataLoader(test_data, batch_size=train_args.batch_size, shuffle=False)
 
         if model_args.ensemble:
             raise NotImplementedError("Ensemble not implemented yet.")

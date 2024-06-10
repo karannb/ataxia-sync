@@ -114,8 +114,8 @@ class Model(nn.Module):
         # forwad
         layer_num = 0
         for gcn, importance in zip(self.st_gcn_networks, self.edge_importance):
-            x, _ = gcn(x, self.A * importance)
-            hidden_states[layer_num] = x
+            x, _, hidden = gcn(x, self.A * importance)
+            hidden_states[layer_num] = hidden
             layer_num += 1
 
         # global pooling
@@ -274,4 +274,4 @@ class st_gcn(nn.Module):
         x, A = self.gcn(x, A)
         x = self.tcn(x) + res
 
-        return self.relu(x), A
+        return self.relu(x), A, x
