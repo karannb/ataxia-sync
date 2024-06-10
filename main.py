@@ -327,7 +327,8 @@ def main():
         log.write(to_print)
         ovr_log.write(to_print)
         log.close()
-        wandb.finish()
+        if train_args.with_tracking:
+            wandb.finish()
 
         ovr_results["Test Accuracy"].append(acc)
         ovr_results["Test F1"].append(f1)

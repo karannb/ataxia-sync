@@ -6,7 +6,7 @@ from torch.utils.data import Dataset
 def splitter(length) -> tuple:
     inds = np.arange(length)
     np.random.shuffle(inds)
-    return inds[:119], inds[119:]
+    return inds[:116], inds[116:]
 
 
 class ATAXIA(Dataset):
@@ -24,10 +24,9 @@ class ATAXIA(Dataset):
         self.data = self.data[inds]
         self.labels = self.labels[inds]
 
-        if len(inds) == 30:  # FIXME : Hardcoded
-            # print distribution of labels
-            print("Distribution of labels in test set")
-            print(np.unique(self.labels, return_counts=True))
+        # print distribution of labels
+        print("Distribution of labels in the set :")
+        print(np.unique(self.labels, return_counts=True))
 
     def __len__(self):
         return len(self.data)
@@ -53,5 +52,7 @@ class ATAXIA(Dataset):
         self.labels = torch.tensor(self.labels, dtype=torch.int64)
 
 
-# if __name__ == '__main__':
-#     dataset = ATAXIA()
+if __name__ == '__main__':
+    train, test = splitter(146)
+    dataset = ATAXIA(train)
+    print(dataset[0][0].shape)
