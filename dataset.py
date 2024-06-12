@@ -78,3 +78,5 @@ class ATAXIA(Dataset):
 #     print(data.iloc[904])
 #     data = data.iloc[:867]
 #     print(data.iloc[-1])
+#     dataset = ATAXIA(range(len(data)))
+#     print(dataset[:5][0].shape)

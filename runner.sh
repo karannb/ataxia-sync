@@ -8,13 +8,12 @@
 #SBATCH --error=logs/err_%j.log
 #SBATCH --time=1-00:00:00
 
-python3 main.py --log_every 10 --batch_size 256 --epochs 1000 --lr 3e-4 \
+python3 main.py --log_every 10 --batch_size 128 --epochs 1000 --lr 7e-5 \
  --weight_decay 0 --folds 10 --eval_every 10 --save_every 50 \
- --patience 40 --seed 41 --layer_num 3 --with_tracking \
+ --patience 40 --seed 41 --layer_num -2 --with_tracking \
  --ckpt_path "ckpts/st_gcn.kinetics.pt"
 
 # Can also start with nohup
 # additional args - 
 # --with_tracking
 # --use_mlp
-# --ensemble

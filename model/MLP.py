@@ -8,7 +8,7 @@ class MLP(nn.Module):
         super().__init__()
         
         self.hid_dim = hid_dim
-        self.mlp = nn.Sequential([
+        self.mlp = nn.Sequential(*[
             nn.Linear(75*18*3, hid_dim),
             nn.ReLU(),
             nn.Linear(hid_dim, 2)

@@ -14,6 +14,7 @@ from torch.utils.data import DataLoader
 
 from dataset import ATAXIA, splitter
 from model.st_gcn import TruncatedModel
+from model.MLP import MLP
 
 
 class TrainArgs:
@@ -98,7 +99,7 @@ def parse_args() -> Tuple[TrainArgs, ModelArgs]:
 
     # Model params
     parser.add_argument(
-        "--layer_num", type=int, default=4, help="Decides which block of STGCN is to be used."
+        "--layer_num", type=int, default=4, help="Decides which block of STGCN (Or MLP if set to -2) is to be used."
     )
     parser.add_argument(
         "--use_mlp",
@@ -182,7 +183,9 @@ def main():
     ovr_log = open(f"save/{ovr_save_pth}/ovr.log", "w")
     
     # Overall dataset
-    data = pd.read_csv("data/overall.csv", index_col=None)
+    data = pd.read_csv("data/all_gait.csv", index_col=None)
+    val_inds = range(len(data))[867:]
+    data = data.iloc[:867]
 
     for fold in range(train_args.folds):
 
@@ -194,27 +197,48 @@ def main():
 
         # Load the data
         train_inds, test_inds = splitter(len(data))
-        train_inds = data["video_num"][train_inds]
-        test_inds = data["video_num"][test_inds]
+        train_inds = data["index"][train_inds]
+        test_inds = data["index"][test_inds]
         with open("save/" + ovr_save_pth + fold_save_pth + "/inds.pkl", "wb") as f:
             pickle.dump((train_inds, test_inds), f)
         train_data = ATAXIA(train_inds)
         test_data = ATAXIA(test_inds)
+        val_data = ATAXIA(val_inds)
+        
+        # print distribution of labels in the test set.
+        to_print = f"Distribution of labels in the test set : {np.unique(test_data.labels, return_counts=True)}\n"
+        print(to_print, end="")
+        log.write(to_print)
+        log.flush()
+        ovr_log.write(to_print)
+        ovr_log.flush()
+        
+        # print distribution of labels in the test set.
+        to_print = f"Distribution of labels in the Val set : {np.unique(val_data.labels, return_counts=True)}\n"
+        print(to_print, end="")
+        log.write(to_print)
+        log.flush()
+        ovr_log.write(to_print)
+        ovr_log.flush()
 
         train_loader = DataLoader(
             train_data, batch_size=train_args.batch_size, shuffle=True
         )
         test_loader = DataLoader(test_data, batch_size=train_args.batch_size, shuffle=False)
+        val_loader = DataLoader(val_data, batch_size=train_args.batch_size, shuffle=False)
 
         if model_args.ensemble:
             raise NotImplementedError("Ensemble not implemented yet.")
 
         # Load the model
-        model = TruncatedModel(model_args.layer_num, model_args.use_mlp)
-        state_dict = torch.load(model_args.ckpt_path)
-        model.load_state_dict(
-            state_dict, strict=False
-        )  # strict=False because we are loading a subset of the model
+        if model_args.layer_num == -2:
+            model = MLP()
+        else:
+            model = TruncatedModel(model_args.layer_num, model_args.use_mlp)
+            state_dict = torch.load(model_args.ckpt_path)
+            model.load_state_dict(
+                state_dict, strict=False
+            )  # strict=False because we are loading a subset of the model
         if torch.cuda.is_available():
             model = model.to("cuda:0")
 
@@ -292,7 +316,7 @@ def main():
                         step=epoch,
                     )
 
-                if acc > best_acc:
+                if acc >= best_acc: # >= because usually, a later match will have lower loss.
                     patience = train_args.patience
                     best_acc = acc
                     best_model = {
@@ -331,7 +355,7 @@ def main():
         ]
         model.load_state_dict(state_dict)
 
-        preds, labels, test_loss = validate(model, test_loader)
+        preds, labels, test_loss = validate(model, val_loader)
         acc = accuracy_score(labels, preds)
         f1 = f1_score(labels, preds)
         auc = roc_auc_score(labels, preds)
