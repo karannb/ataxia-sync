@@ -174,7 +174,7 @@ class TruncatedModel(Model):
             :math:`M_{in}` is the number of instance in a frame.
     """
 
-    def __init__(self, layer=4, use_mlp=False):
+    def __init__(self, layer=4, use_mlp=False, task="classification"):
 
         super().__init__(
             in_channels=3,
@@ -184,11 +184,18 @@ class TruncatedModel(Model):
             return_hidden_states=True,
         )
         self.layer = layer
+        
+        if task == "classification":
+            num_class = 2
+        elif task == "regression":
+            num_class = 1
+        else:
+            raise NotImplementedError
 
         if use_mlp:
-            self.head = nn.Linear(LAYER2DIM[layer], 2)
+            self.head = nn.Linear(LAYER2DIM[layer], num_class)
         else:
-            self.head = nn.Conv2d(LAYER2DIM[layer], 2, kernel_size=1)
+            self.head = nn.Conv2d(LAYER2DIM[layer], num_class, kernel_size=1)
 
     def forward(self, x: torch.Tensor):
 
