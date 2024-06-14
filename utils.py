@@ -1,3 +1,4 @@
+import io
 import os
 import torch
 import random
@@ -86,8 +87,8 @@ def get_10_folds(train_val_inds) -> Tuple[List[List[int]], List[List[int]]]:
 
 
 def train_val_test_split_inds(
-        df: pd.DataFrame
-) -> Tuple[List[List[int]], List[List[int]], List[int]]:
+        df: pd.DataFrame,
+        task: str) -> Tuple[List[List[int]], List[List[int]], List[int]]:
     '''
     Splits the data into training, validation, and testing sets.
     
@@ -95,6 +96,8 @@ def train_val_test_split_inds(
     ----
     df: pd.DataFrame
         DataFrame containing the data.
+    task: str
+        The task being optimized for (classification/regression).
         
     Returns
     -------
@@ -106,15 +109,20 @@ def train_val_test_split_inds(
         List of indices for testing data.
     '''
 
-    vids_plus = [int(x) for x in os.listdir("data/gait_cycles/") if \
-        (df[df["video"] == int(x)]["label"].values[0] == 1)]
-    vids_minus = [int(x) for x in os.listdir("data/gait_cycles/") if \
-        (df[df["video"] == int(x)]["label"].values[0] == 0)]
-    # get the indices of the videos that have label 1 and 0
-    # so that I can get a representative sample of the holdout set
+    if task == "classification":
+        vids_plus = [int(x) for x in os.listdir("data/gait_cycles/") if \
+            (df[df["video"] == int(x)]["label"].values[0] == 1)]
+        vids_minus = [int(x) for x in os.listdir("data/gait_cycles/") if \
+            (df[df["video"] == int(x)]["label"].values[0] == 0)]
+        # get the indices of the videos that have label 1 and 0
+        # so that I can get a representative sample of the holdout set
 
-    holdout = random.sample(vids_plus, k=5)
-    holdout.extend(random.sample(vids_minus, k=5))
+        holdout = random.sample(vids_plus, k=5)
+        holdout.extend(random.sample(vids_minus, k=5))
+    else:
+        vids = [int(x) for x in os.listdir("data/gait_cycles/")]
+        holdout = random.sample(vids, k=10)
+
     test_inds = list(
         itertools.chain(
             *[df[df["video"] == i]["index"].tolist() for i in holdout]))
@@ -130,7 +138,7 @@ def train_val_test_split_inds(
     return train_inds, val_inds, test_inds
 
 
-def print_and_log(to_print: str, logs: List[str]) -> None:
+def print_and_log(to_print: str, logs: List[io.TextIOWrapper]) -> None:
     '''
     Print and log the message.
     
@@ -149,9 +157,8 @@ def print_and_log(to_print: str, logs: List[str]) -> None:
         to_print += "\n"
     print(to_print, end="")
     for log in logs:
-        with open(log, "a") as f:
-            f.write(to_print)
-            f.flush()
+        log.write(to_print)
+        log.flush()
 
     return
 

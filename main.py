@@ -166,8 +166,10 @@ def parse_args() -> Tuple[TrainArgs, ModelArgs]:
     return train_args, model_args
 
 
+@torch.no_grad()
 def validate(model: nn.Module,
-             loader: DataLoader) -> Tuple[np.ndarray, np.ndarray, float]:
+             loader: DataLoader,
+             task: str) -> Tuple[np.ndarray, np.ndarray, float]:
     '''
     Validates the model on the given data.
     
@@ -177,6 +179,8 @@ def validate(model: nn.Module,
         The model to be validated.
     loader: DataLoader
         The DataLoader object for the validation data.
+    task: str
+        The task being performed (regression/classification)
     
     Returns
     -------
@@ -197,11 +201,16 @@ def validate(model: nn.Module,
         if torch.cuda.is_available():
             X = X.cuda()
             y = y.cuda()
-
-        features = F.softmax(model(X), dim=-1)
-        test_loss = F.cross_entropy(features, y)
+            
+        if task == "classification":
+            features = F.softmax(model(X), dim=-1)
+            test_loss = F.cross_entropy(features, y)
+            preds.append(features.argmax(dim=1).cpu().numpy())
+        elif task == "regression":
+            features = model(X).squeeze(1)
+            test_loss = F.mse_loss(features, y)
+            preds.append(features.cpu().numpy())
         loss.append(test_loss.item())
-        preds.append(features.argmax(dim=1).cpu().numpy())
         labels.append(y.cpu().numpy())
 
     preds = np.concatenate(preds)
@@ -238,7 +247,7 @@ def train_step(model: nn.Module, loader: DataLoader,
         if task == "classification":
             features = F.softmax(model(X), dim=-1)
         elif task == "regression":
-            features = model(X)
+            features = model(X).squeeze(1)
         loss = criterion(features, y)
         optimizer.zero_grad()
         loss.backward()
@@ -278,7 +287,7 @@ def main():
 
     # Overall dataset
     data = pd.read_csv("data/all_gait.csv", index_col=None)
-    train_inds, val_inds, test_inds = train_val_test_split_inds(data)
+    train_inds, val_inds, test_inds = train_val_test_split_inds(data, train_args.task)
 
     # Save the test indices
     with open("save/" + ovr_save_pth + "/test_inds.pkl", "wb") as f:
@@ -338,7 +347,10 @@ def main():
             model = model.to("cuda:0")
 
         # Define the optimizer
-        criterion = torch.nn.CrossEntropyLoss()
+        if train_args.task == "classification":
+            criterion = torch.nn.CrossEntropyLoss()
+        else:
+            criterion = torch.nn.MSELoss()
         optimizer = torch.optim.Adam(model.parameters(),
                                      lr=train_args.lr,
                                      weight_decay=train_args.weight_decay)
@@ -356,11 +368,14 @@ def main():
         best_model = None
         patience = train_args.patience
         best_acc = 0.0
+        best_mse = float('inf')
+        
+        acc, f1, auc, mse, mae, pearson = None, None, None, None, None, None
 
         # Training loop
         for epoch in range(train_args.epochs):
 
-            mean_loss = train_step(model, train_loader, optimizer, criterion)
+            mean_loss = train_step(model, train_loader, optimizer, criterion, train_args.task)
 
             if train_args.with_tracking:
                 wandb.log({"Train Loss": mean_loss}, step=epoch)
@@ -377,7 +392,7 @@ def main():
 
             if epoch % train_args.eval_every == 0:
 
-                preds, labels, val_loss = validate(model, val_loader)
+                preds, labels, val_loss = validate(model, val_loader, train_args.task)
                 if train_args.task == "classification":
                     acc, f1, auc = evaluate(preds, labels, train_args.task)
                     to_print = f"Fold : {fold}, Epoch : {epoch}, Validation Accuracy : {acc}, Validation F1 : {f1}, Validation AUC : {auc}\n"
@@ -408,21 +423,32 @@ def main():
                             step=epoch,
                         )
 
-                if acc >= best_acc:  # >= because usually, a later match will have lower loss.
+                if (acc != None and acc >= best_acc) or (mse != None and mse <= best_mse):  # >= because usually, a later match will have lower loss.
                     patience = train_args.patience
                     best_acc = acc
-                    best_model = {
-                        "model": model.state_dict(),
-                        "epoch": epoch,
-                        "f1": f1,
-                        "acc": acc,
-                        "auc": auc,
-                    }
+                    best_mse = mse
+                    if train_args.task == "classification":
+                        best_model = {
+                            "model": model.state_dict(),
+                            "epoch": epoch,
+                            "f1": f1,
+                            "acc": acc,
+                            "auc": auc,
+                        }
+                        to_print = f"Best model saved at epoch {epoch} with Accuracy of {acc}\n"
+                    else:
+                        best_model = {
+                            "model": model.state_dict(),
+                            "epoch": epoch,
+                            "mae": mae,
+                            "mse": mse,
+                            "pearson": pearson,
+                        }
+                        to_print = f"Best model saved at epoch {epoch} with MSE of {mse}\n"
                     torch.save(
                         best_model,
                         f"save/{ovr_save_pth}/{fold_save_pth}/best_model.pth",
                     )
-                    to_print = f"Best model saved at epoch {epoch} with Accuracy of {acc}\n"
                     print_and_log(to_print, log_list)
                 else:
                     patience -= 1
@@ -436,7 +462,7 @@ def main():
             f"save/{ovr_save_pth}/{fold_save_pth}/best_model.pth")["model"]
         model.load_state_dict(state_dict)
 
-        preds, labels, _ = validate(model, test_loader)
+        preds, labels, _ = validate(model, test_loader, train_args.task)
         if train_args.task == "classification":
             acc, f1, auc = evaluate(preds, labels, train_args.task)
             to_print = f"Fold : {fold}, Final Evaluation\nTest Accuracy : {acc}, Test F1 : {f1}, Test AUC : {auc}\n"

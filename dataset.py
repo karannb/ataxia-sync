@@ -6,7 +6,7 @@ from torch.utils.data import Dataset
 
 
 class ATAXIA(Dataset):
-    def __init__(self, task, inds=None, data_path="data"):
+    def __init__(self, inds=None, task="classification", data_path="data"):
 
         # Read df
         df = pd.read_csv(f"{data_path}/all_gait.csv")
