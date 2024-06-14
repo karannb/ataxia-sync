@@ -5,19 +5,6 @@ import pandas as pd
 from torch.utils.data import Dataset
 
 
-def splitter(length) -> tuple:
-    if isinstance(length, int):
-        inds = np.arange(length)
-        np.random.shuffle(inds)
-        train2test = int(length * 0.8)
-        return inds[:train2test], inds[train2test:]
-    elif isinstance(length, list) or isinstance(length, np.ndarray):
-        train2test = int(len(length) * 0.8)
-        return length[:train2test], length[train2test:]
-    else:
-        raise NotImplementedError
-
-
 class ATAXIA(Dataset):
 
     def __init__(self, inds=None, data_path="data"):

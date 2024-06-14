@@ -12,9 +12,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
-from dataset import ATAXIA, splitter
-from model.st_gcn import TruncatedModel
 from model.MLP import MLP
+from dataset import ATAXIA
+from utils import *
+from model.st_gcn import TruncatedModel
 
 
 class TrainArgs:
@@ -108,12 +109,6 @@ def parse_args() -> Tuple[TrainArgs, ModelArgs]:
         help="Use a MLP instead of a Conv2d.",
     )
     parser.add_argument(
-        "--ensemble",
-        default=False,
-        action="store_true",
-        help="Will do an ensemble of 5 heads when True.",
-    )
-    parser.add_argument(
         "--ckpt_path",
         default="ckpts/st_gcn.kinetics.pt",
         help="Path to the checkpoint file.",
@@ -139,7 +134,6 @@ def parse_args() -> Tuple[TrainArgs, ModelArgs]:
     model_args = ModelArgs()
     model_args.layer_num = args.layer_num
     model_args.use_mlp = args.use_mlp
-    model_args.ensemble = args.ensemble
     model_args.ckpt_path = args.ckpt_path
 
     return train_args, model_args
@@ -174,7 +168,7 @@ def main():
     train_args, model_args = parse_args()
     if train_args.with_tracking:
         import wandb
-    ovr_results = {"Test Accuracy": [], "Test F1": [], "Test AUC": []}
+    ovr_results = {"Validation Accuracy": [], "Validation F1": [], "Validation AUC": []}
 
     ovr_save_pth = f"epoch_{train_args.epochs}_seed_{train_args.seed}_lr_{train_args.lr}_bs_{train_args.batch_size}_wd_{train_args.weight_decay}_folds_{train_args.folds}_layer_{model_args.layer_num}_mlp_{model_args.use_mlp}_ensemble_{model_args.ensemble}/"
     if not os.path.exists("save/" + ovr_save_pth):
@@ -226,9 +220,6 @@ def main():
         )
         test_loader = DataLoader(test_data, batch_size=train_args.batch_size, shuffle=False)
         val_loader = DataLoader(val_data, batch_size=train_args.batch_size, shuffle=False)
-
-        if model_args.ensemble:
-            raise NotImplementedError("Ensemble not implemented yet.")
 
         # Load the model
         if model_args.layer_num == -2:
@@ -299,7 +290,7 @@ def main():
                 acc = accuracy_score(labels, preds)
                 f1 = f1_score(labels, preds)
                 auc = roc_auc_score(labels, preds)
-                to_print = f"Fold : {fold}, Epoch : {epoch}, Test Accuracy : {acc}, Test F1 : {f1}, Test AUC : {auc}\n"
+                to_print = f"Fold : {fold}, Epoch : {epoch}, Validation Accuracy : {acc}, Validation F1 : {f1}, Validation AUC : {auc}\n"
                 print(to_print, end="")
                 log.write(to_print)
                 log.flush()
@@ -308,9 +299,9 @@ def main():
                 if train_args.with_tracking:
                     wandb.log(
                         {
-                            "Test Accuracy": acc,
-                            "Test F1": f1,
-                            "Test AUC": auc,
+                            "Validation Accuracy": acc,
+                            "Validation F1": f1,
+                            "Validation AUC": auc,
                             "Test Loss": test_loss,
                         },
                         step=epoch,
@@ -369,16 +360,16 @@ def main():
         if train_args.with_tracking:
             wandb.finish()
 
-        ovr_results["Test Accuracy"].append(acc)
-        ovr_results["Test F1"].append(f1)
-        ovr_results["Test AUC"].append(auc)
+        ovr_results["Validation Accuracy"].append(acc)
+        ovr_results["Validation F1"].append(f1)
+        ovr_results["Validation AUC"].append(auc)
 
     results = pd.DataFrame(ovr_results)
     results.to_csv(f"save/{ovr_save_pth}/results.csv")
-    mean_acc = results["Test Accuracy"].mean()
-    mean_f1 = results["Test F1"].mean()
-    mean_auc = results["Test AUC"].mean()
-    to_print = f"Mean Test Accuracy : {mean_acc}, Mean Test F1 : {mean_f1}, Mean Test AUC : {mean_auc}\n"
+    mean_acc = results["Validation Accuracy"].mean()
+    mean_f1 = results["Validation F1"].mean()
+    mean_auc = results["Validation AUC"].mean()
+    to_print = f"Mean Validation Accuracy : {mean_acc}, Mean Validation F1 : {mean_f1}, Mean Validation AUC : {mean_auc}\n"
     print(to_print, end="")
     ovr_log.write(to_print)
     ovr_log.close() # .close() will anyways flush
