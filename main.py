@@ -368,7 +368,7 @@ def main():
         best_model = None
         patience = train_args.patience
         best_acc = 0.0
-        best_mse = float('inf')
+        best_mae = float('inf')
         
         acc, f1, auc, mse, mae, pearson = None, None, None, None, None, None
 
@@ -423,10 +423,10 @@ def main():
                             step=epoch,
                         )
 
-                if (acc != None and acc >= best_acc) or (mse != None and mse <= best_mse):  # >= because usually, a later match will have lower loss.
+                if (acc != None and acc >= best_acc) or (mae != None and mae <= best_mae):  # >= because usually, a later match will have lower loss.
                     patience = train_args.patience
                     best_acc = acc
-                    best_mse = mse
+                    best_mae = mae
                     if train_args.task == "classification":
                         best_model = {
                             "model": model.state_dict(),
@@ -444,7 +444,7 @@ def main():
                             "mse": mse,
                             "pearson": pearson,
                         }
-                        to_print = f"Best model saved at epoch {epoch} with MSE of {mse}\n"
+                        to_print = f"Best model saved at epoch {epoch} with MAE of {mae}\n"
                     torch.save(
                         best_model,
                         f"save/{ovr_save_pth}/{fold_save_pth}/best_model.pth",
