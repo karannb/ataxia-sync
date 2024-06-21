@@ -54,7 +54,8 @@ def splitter(len_or_list) -> Tuple[List[int], List[int]]:
         raise NotImplementedError
 
 
-def get_10_folds(train_val_inds) -> Tuple[List[List[int]], List[List[int]]]:
+def get_10_folds(train_val_inds,
+                 shuffle: bool = True) -> Tuple[List[List[int]], List[List[int]]]:
     '''
     Splits the data into 10 folds for cross-validation.
     
@@ -62,6 +63,8 @@ def get_10_folds(train_val_inds) -> Tuple[List[List[int]], List[List[int]]]:
     ----
     train_val_inds: list
         List of indices to be split into 10 folds.
+    shuffle: bool
+        To shuffle the indices or not. (True by default)
     
     Returns
     -------
@@ -74,7 +77,8 @@ def get_10_folds(train_val_inds) -> Tuple[List[List[int]], List[List[int]]]:
         train_inds = []
         val_inds = []
         total = len(train_val_inds)
-        random.shuffle(train_val_inds)
+        if shuffle:
+            random.shuffle(train_val_inds)
         for i in range(1, 11):
             start_idx = int(0.1 * total * (i - 1))
             end_idx = int(0.1 * total * i)
@@ -88,7 +92,8 @@ def get_10_folds(train_val_inds) -> Tuple[List[List[int]], List[List[int]]]:
 
 def train_val_test_split_inds(
         df: pd.DataFrame,
-        task: str) -> Tuple[List[List[int]], List[List[int]], List[int]]:
+        task: str, do_test_split: bool = False,
+        shuffle: bool = True) -> Tuple[List[List[int]], List[List[int]], List[int]]:
     '''
     Splits the data into training, validation, and testing sets.
     
@@ -98,6 +103,11 @@ def train_val_test_split_inds(
         DataFrame containing the data.
     task: str
         The task being optimized for (classification/regression).
+    do_test_split: bool
+        Whether to split the data into testing set or not. (False by default)
+    shuffle: bool
+        To shuffle the indices or not. (True by default)
+
         
     Returns
     -------
@@ -107,33 +117,38 @@ def train_val_test_split_inds(
         List of lists of indices for validation data. 10 lists.
     test_inds: list
         List of indices for testing data.
+        [] if do_test_split is False.
     '''
+    
+    if do_test_split:
+        if task == "classification":
+            vids_plus = [int(x) for x in os.listdir("data/gait_cycles/") if \
+                (df[df["video"] == int(x)]["label"].values[0] == 1)]
+            vids_minus = [int(x) for x in os.listdir("data/gait_cycles/") if \
+                (df[df["video"] == int(x)]["label"].values[0] == 0)]
+            # get the indices of the videos that have label 1 and 0
+            # so that I can get a representative sample of the holdout set
 
-    if task == "classification":
-        vids_plus = [int(x) for x in os.listdir("data/gait_cycles/") if \
-            (df[df["video"] == int(x)]["label"].values[0] == 1)]
-        vids_minus = [int(x) for x in os.listdir("data/gait_cycles/") if \
-            (df[df["video"] == int(x)]["label"].values[0] == 0)]
-        # get the indices of the videos that have label 1 and 0
-        # so that I can get a representative sample of the holdout set
+            holdout = random.sample(vids_plus, k=5)
+            holdout.extend(random.sample(vids_minus, k=5))
+        else:
+            vids = [int(x) for x in os.listdir("data/gait_cycles/")]
+            holdout = random.sample(vids, k=10)
 
-        holdout = random.sample(vids_plus, k=5)
-        holdout.extend(random.sample(vids_minus, k=5))
+        test_inds = list(
+            itertools.chain(
+                *[df[df["video"] == i]["index"].tolist() for i in holdout]))
+        # df[df["video"] == i]["index"].tolist() returns the indices of the video i
+        # then I make a flat list of all the indices of the holdout videos using
+        # `itertools.chain`
+    
     else:
-        vids = [int(x) for x in os.listdir("data/gait_cycles/")]
-        holdout = random.sample(vids, k=10)
-
-    test_inds = list(
-        itertools.chain(
-            *[df[df["video"] == i]["index"].tolist() for i in holdout]))
-    # df[df["video"] == i]["index"].tolist() returns the indices of the video i
-    # then I make a flat list of all the indices of the holdout videos using
-    # `itertools.chain`
+        test_inds = []
 
     vids = list(set(range(len(df))) - set(test_inds))
     # set difference to get the indices of the videos that are not in the test set
 
-    train_inds, val_inds = get_10_folds(vids)
+    train_inds, val_inds = get_10_folds(vids, shuffle)
 
     return train_inds, val_inds, test_inds
 

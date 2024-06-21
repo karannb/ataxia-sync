@@ -18,7 +18,9 @@ from model.st_gcn import TruncatedModel
 
 class TrainArgs:
     with_tracking: bool = False
+    do_test_split: bool = False
     task: str = "classification"
+    shuffle: bool = True
     run_name: str
     log_every: int = 10
     batch_size: int = 256
@@ -35,7 +37,6 @@ class TrainArgs:
 class ModelArgs:
     layer_num: int = 4
     use_mlp: bool = False
-    ensemble: bool = False
     ckpt_path: str = "models/st_gcn.kinetics.pt"
 
 
@@ -43,7 +44,9 @@ def parse_args() -> Tuple[TrainArgs, ModelArgs]:
     '''
     Args available -
     --with_tracking: bool = False
+    --do_test_split: bool = False
     --task: str = "classification"
+    --no_shuffle: bool = False
     --log_every: int = 10
     --batch_size: int = 256
     --epochs: int = 1000
@@ -81,6 +84,18 @@ def parse_args() -> Tuple[TrainArgs, ModelArgs]:
         default="classification",
         choices=["classification", "regression"],
         help="The task to be performed. (classification/regression)",
+    )
+    parser.add_argument(
+        "--no_shuffle",
+        default=False,
+        action="store_true",
+        help="Wether to shuffle the train-val split or not.",
+    )
+    parser.add_argument(
+        "--do_test_split",
+        default=False,
+        action="store_true",
+        help="Whether to do a test split or not.",
     )
     parser.add_argument("-b",
                         "--batch_size",
@@ -144,7 +159,9 @@ def parse_args() -> Tuple[TrainArgs, ModelArgs]:
 
     train_args = TrainArgs()
     train_args.with_tracking = args.with_tracking
+    train_args.do_test_split = args.do_test_split
     train_args.task = args.task
+    train_args.shuffle = not args.no_shuffle
     train_args.log_every = args.log_every
     train_args.batch_size = args.batch_size
     train_args.epochs = args.epochs
@@ -279,7 +296,7 @@ def main():
     else:
         ovr_results = {"Test MSE": [], "Test MAE": [], "Test Pearson": []}
 
-    ovr_save_pth = f"task_{train_args.task}_epochs_{train_args.epochs}_seed_{train_args.seed}_lr_{train_args.lr}_bs_{train_args.batch_size}_wd_{train_args.weight_decay}_folds_{train_args.folds}_layer_{model_args.layer_num}_mlp_{model_args.use_mlp}_ensemble_{model_args.ensemble}/"
+    ovr_save_pth = f"task_{train_args.task}_shuffle_{train_args.shuffle}_epochs_{train_args.epochs}_seed_{train_args.seed}_lr_{train_args.lr}_bs_{train_args.batch_size}_wd_{train_args.weight_decay}_folds_{train_args.folds}_layer_{model_args.layer_num}_mlp_{model_args.use_mlp}/"
     if not os.path.exists("save/" + ovr_save_pth):
         os.mkdir("save/" + ovr_save_pth)
 
@@ -287,11 +304,12 @@ def main():
 
     # Overall dataset
     data = pd.read_csv("data/all_gait.csv", index_col=None)
-    train_inds, val_inds, test_inds = train_val_test_split_inds(data, train_args.task)
-
-    # Save the test indices
-    with open("save/" + ovr_save_pth + "/test_inds.pkl", "wb") as f:
-        pickle.dump((test_inds), f)
+    train_inds, val_inds, test_inds = train_val_test_split_inds(data, train_args.task, train_args.do_test_split)
+    
+    if train_args.do_test_split:
+        # Save the test indices
+        with open("save/" + ovr_save_pth + "/test_inds.pkl", "wb") as f:
+            pickle.dump((test_inds), f)
 
     for fold, train_split, val_split in zip(range(train_args.folds),
                                             train_inds, val_inds):
@@ -311,11 +329,13 @@ def main():
         # Load data
         train_data = ATAXIA(train_split, train_args.task)
         val_data = ATAXIA(val_split, train_args.task)
-        test_data = ATAXIA(test_inds, train_args.task)
-
-        # print distribution of labels in the test set.
-        to_print = f"Distribution of labels in the test set : {np.unique(test_data.labels, return_counts=True)}\n"
-        print_and_log(to_print, log_list)
+        if train_args.do_test_split:
+            test_data = ATAXIA(test_inds, train_args.task)
+            
+        if train_args.do_test_split:
+            # print distribution of labels in the test set.
+            to_print = f"Distribution of labels in the test set : {np.unique(test_data.labels, return_counts=True)}\n"
+            print_and_log(to_print, log_list)
 
         # print distribution of labels in the test set.
         to_print = f"Distribution of labels in the Val set : {np.unique(val_data.labels, return_counts=True)}\n"
@@ -328,9 +348,10 @@ def main():
         val_loader = DataLoader(val_data,
                                 batch_size=train_args.batch_size,
                                 shuffle=False)
-        test_loader = DataLoader(test_data,
-                                 batch_size=train_args.batch_size,
-                                 shuffle=False)
+        if train_args.do_test_split:
+            test_loader = DataLoader(test_data,
+                                    batch_size=train_args.batch_size,
+                                    shuffle=False)
 
         # Load the model
         if model_args.layer_num == -2:
@@ -461,6 +482,9 @@ def main():
         state_dict = torch.load(
             f"save/{ovr_save_pth}/{fold_save_pth}/best_model.pth")["model"]
         model.load_state_dict(state_dict)
+        
+        if not train_args.do_test_split:
+            test_loader = val_loader
 
         preds, labels, _ = validate(model, test_loader, train_args.task)
         if train_args.task == "classification":
