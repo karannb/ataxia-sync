@@ -72,7 +72,7 @@ class ATAXIADataset(Dataset):
     def __len__(self) -> int:
         return len(self.data)
 
-    def __getitem__(self, index) -> Tuple[torch.tensor, torch.tensor]:
+    def __getitem__(self, index) -> Tuple[torch.Tensor, torch.Tensor]:
         return self.data[index], self.labels[index]
 
     def preprocess(self):

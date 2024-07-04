@@ -1,3 +1,7 @@
+'''
+taken as is from https://github.com/yysijie/st-gcn 
+'''
+
 # The based unit of graph convolutional networks.
 
 import torch

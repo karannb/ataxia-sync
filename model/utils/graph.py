@@ -1,3 +1,7 @@
+'''
+Taken as is from https://github.com/yysijie/st-gcn 
+discussed in section 3.3 of the paper.
+'''
 import numpy as np
 
 class Graph():
