@@ -6,7 +6,6 @@ import itertools
 import numpy as np
 import pandas as pd
 from typing import List, Tuple
-import matplotlib.pyplot as plt
 from scipy.stats import pearsonr
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score
 
@@ -76,20 +75,28 @@ def get_10_folds(
         List of lists of indices for validation data.
     '''
     if isinstance(train_val_inds, list):
+
         train_inds = []
         val_inds = []
         total = len(train_val_inds)
+
+        # Shuffle the indices if required
         if shuffle:
             random.shuffle(train_val_inds)
+
+        # Split the data into 10 folds
         for i in range(1, 11):
+            # Get the start and end indices for the validation set
             start_idx = int(0.1 * total * (i - 1))
             end_idx = int(0.1 * total * i)
+            # Append the training and validation indices to the respective lists
             val_inds.append(train_val_inds[start_idx:end_idx])
+            # Concatenate the training indices before and after the validation indices
             train_inds.append(train_val_inds[:start_idx] +
                               train_val_inds[end_idx:])
         return train_inds, val_inds
     else:
-        raise NotImplementedError
+        raise NotImplementedError, "train_val_inds should be a list"
 
 
 def train_val_test_split_inds(
@@ -125,17 +132,19 @@ def train_val_test_split_inds(
     '''
 
     if do_test_split:
+
         if task == "classification":
             vids_plus = [int(x) for x in os.listdir("data/gait_cycles/") if \
                 (df[df["video"] == int(x)]["label"].values[0] == 1)]
             vids_minus = [int(x) for x in os.listdir("data/gait_cycles/") if \
                 (df[df["video"] == int(x)]["label"].values[0] == 0)]
             # get the indices of the videos that have label 1 and 0
-            # so that I can get a representative sample of the holdout set
+            # so that the holdout set is balanced
 
             holdout = random.sample(vids_plus, k=5)
             holdout.extend(random.sample(vids_minus, k=5))
         else:
+            # for regression, just randomly sample 10 videos
             vids = [int(x) for x in os.listdir("data/gait_cycles/")]
             holdout = random.sample(vids, k=10)
 
@@ -143,7 +152,7 @@ def train_val_test_split_inds(
             itertools.chain(
                 *[df[df["video"] == i]["index"].tolist() for i in holdout]))
         # df[df["video"] == i]["index"].tolist() returns the indices of the video i
-        # then I make a flat list of all the indices of the holdout videos using
+        # then make a flat list of all the indices of the holdout videos using
         # `itertools.chain`
 
     else:
@@ -157,7 +166,7 @@ def train_val_test_split_inds(
     return train_inds, val_inds, test_inds
 
 
-def print_and_log(to_print: str, logs: List[io.TextIOWrapper]) -> None:
+def print_and_log(to_print: str, logs: List[io.TextIOWrapper]):
     '''
     Print and log the message.
     
@@ -221,15 +230,19 @@ def evaluate(preds: np.ndarray, labels: np.ndarray,
 
 
 def get_mean_and_std(csv_path: str, round_off=True):
-    
+    '''
+    Utility function to analyse the results from a directory,
+    following our logging format.
+    '''
+
     csv = pd.read_csv(csv_path)
-    
+
     cols = []
     mus = []
     sigmas = []
-    
+
     for col in csv.columns:
-        
+
         cols.append(col)
         mu = csv[col].mean()
         sigma = csv[col].std()
@@ -238,42 +251,7 @@ def get_mean_and_std(csv_path: str, round_off=True):
             sigma = round(sigma, 4)
         mus.append(mu)
         sigmas.append(sigma)
-        
-    new_df = pd.DataFrame({"Name" : cols, "Mu" : mus, "Sigma" : sigmas})
-    
+
+    new_df = pd.DataFrame({"Name": cols, "Mu": mus, "Sigma": sigmas})
+
     print(new_df)
-    
-
-if __name__ == '__main__':
-
-    pd.set_option('display.precision', 10)
-    root_dir = "ablation"
-    for folder in os.listdir(root_dir):
-        if "regression" in folder:
-            csv_path = os.path.join(root_dir, folder, "results.csv")
-            if os.path.exists(csv_path):
-                print("*"*50)
-                print(folder)
-                get_mean_and_std(csv_path, True)
-    
-    # # Load the data
-    # csv = pd.read_csv("data/overall.csv", index_col=None)["score"]
-
-    # # Convert scores greater than 3 to 3
-    # # csv[csv > 3] = 3
-
-    # # Calculate value counts
-    # sorted_cnts = csv.value_counts().sort_index()
-
-    # # Plot the value counts
-    # ax = sorted_cnts.plot(kind="bar")
-    # plt.ylabel("Number of patients")
-    # plt.xlabel("Score")
-
-    # # Modify the x-axis labels to show ">3" for the score 3
-    # labels = [str(x) for x in sorted_cnts.index] # if x != 3 else ">3"
-    # ax.set_xticklabels(labels, rotation=0)
-
-    # # Save the plot
-    # plt.savefig('data/dist_score.png')
-    # plt.close('all')
