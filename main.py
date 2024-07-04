@@ -10,22 +10,23 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
-from utils import *
 from model.MLP import MLP
 from dataset import ATAXIADataset
 from model.st_gcn import TruncatedModel
+from utils import seed_all, train_val_test_split_inds, evaluate, print_and_log
 
 
 class TrainArgs:
+    # logging params
     with_tracking: bool = False
-    non_overlapping: bool = False
     log_dir: str = "save"
+    log_every: int = 10
+
+    # training params
+    non_overlapping: bool = False
     do_test_split: bool = False
     task: str = "classification"
-    debug: bool = False
     shuffle: bool = True
-    run_name: str
-    log_every: int = 10
     batch_size: int = 256
     epochs: int = 1000
     lr: float = 3e-5
@@ -49,13 +50,12 @@ def parse_args() -> Tuple[TrainArgs, ModelArgs]:
     '''
     Args available -
     --with_tracking: bool = False
-    --non_overlapping: bool = False
+    --log_every: int = 10
     --log_dir: str = "save"
-    --do_test_split: bool = False
-    --debug: bool = False
+    --non_overlapping: bool = False
     --task: str = "classification"
     --no_shuffle: bool = False
-    --log_every: int = 10
+    --do_test_split: bool = False
     --batch_size: int = 256
     --epochs: int = 1000
     --lr: float = 3e-5
@@ -66,10 +66,10 @@ def parse_args() -> Tuple[TrainArgs, ModelArgs]:
     --patience: int = 50
     --seed: int = 42
     --layer_num: int = 4
-    --use_mlp: bool = False
     --freeze_encoder: bool = False
     --deepnet: bool = False
-    --ckpt_path: str = "models/st_gcn.kinetics.pt"
+    --use_mlp: bool = False
+    --ckpt_path: str = "ckpts/st_gcn.kinetics.pt"
     '''
 
     parser = ArgumentParser()
@@ -82,30 +82,30 @@ def parse_args() -> Tuple[TrainArgs, ModelArgs]:
         help="Wether to track with w&b or not.",
     )
     parser.add_argument(
-        "--log_every",
-        default=10,
-        type=int,
-        help="Logs to w&b (and terminal) every log_every epochs.",
-    )
-    parser.add_argument(
         "--log_dir",
         default="save",
         type=str,
         help=
         "Where to log the results. Specify without a '/' or '\\' at the end, e.g. 'save' and not 'save/' "
     )
+    parser.add_argument(
+        "--log_every",
+        default=10,
+        type=int,
+        help="Logs to w&b (and terminal) every log_every epochs.",
+    )
 
     # Training params
+    parser.add_argument("--non_overlapping",
+                        default=False,
+                        action='store_true',
+                        help="Use non-overlapping GAIT cycles.")
     parser.add_argument(
-        "--debug",
+        "--do_test_split",
         default=False,
-        action='store_true',
-        help="Picks a subset of the dataset for faster debugging.")
-    parser.add_argument(
-        "--non_overlapping",
-        default=False,
-        action='store_true',
-        help="Use non-overlapping GAIT cycles.")
+        action="store_true",
+        help="Whether to do a test split or not.",
+    )
     parser.add_argument(
         "--task",
         default="classification",
@@ -118,21 +118,15 @@ def parse_args() -> Tuple[TrainArgs, ModelArgs]:
         action="store_true",
         help="Wether to shuffle the train-val split or not.",
     )
-    parser.add_argument(
-        "--do_test_split",
-        default=False,
-        action="store_true",
-        help="Whether to do a test split or not.",
-    )
     parser.add_argument("-b",
                         "--batch_size",
                         type=int,
-                        default=256,
+                        default=64,
                         help="Select Batch Size.")
     parser.add_argument("-e",
                         "--epochs",
                         type=int,
-                        default=1000,
+                        default=500,
                         help="Number of epochs to train for.")
     parser.add_argument("--lr",
                         type=float,
@@ -148,19 +142,19 @@ def parse_args() -> Tuple[TrainArgs, ModelArgs]:
                         help="Number of folds for cross validation.")
     parser.add_argument("--eval_every",
                         type=int,
-                        default=10,
+                        default=20,
                         help="Evaluate every eval_every epochs.")
     parser.add_argument("--save_every",
                         type=int,
-                        default=50,
+                        default=100,
                         help="Save model every save_every epochs.")
     parser.add_argument("--patience",
                         type=int,
-                        default=50,
+                        default=20,
                         help="Early stopping patience.")
     parser.add_argument("--seed",
                         type=int,
-                        default=42,
+                        default=40,
                         help="Seeds the experiment.")
 
     # Model params
@@ -179,7 +173,7 @@ def parse_args() -> Tuple[TrainArgs, ModelArgs]:
         "--deepnet",
         default=False,
         action='store_true',
-        help="Wether or not to use a deeper network after STGCN.")
+        help="Wether or not to use a deeper network as the head after STGCN.")
     parser.add_argument(
         "--use_mlp",
         default=False,
@@ -189,7 +183,8 @@ def parse_args() -> Tuple[TrainArgs, ModelArgs]:
     parser.add_argument(
         "--ckpt_path",
         default="ckpts/st_gcn.kinetics.pt",
-        help="Path to the checkpoint file.",
+        help=
+        "Path to the checkpoint file. Passing 'None' will not load any checkpoint.",
     )
 
     args = parser.parse_args()
@@ -197,7 +192,6 @@ def parse_args() -> Tuple[TrainArgs, ModelArgs]:
     train_args = TrainArgs()
     train_args.with_tracking = args.with_tracking
     train_args.log_dir = args.log_dir
-    train_args.debug = args.debug
     train_args.non_overlapping = args.non_overlapping
     train_args.do_test_split = args.do_test_split
     train_args.task = args.task
@@ -254,7 +248,7 @@ def validate(model: nn.Module, loader: DataLoader,
     preds = []
     labels = []
     loss = []
-    for i, (X, y) in enumerate(loader):
+    for _, (X, y) in enumerate(loader):
 
         if torch.cuda.is_available():
             X = X.cuda()
@@ -323,6 +317,7 @@ def main():
     # Logging params and files
     if train_args.with_tracking:
         import wandb
+
     if train_args.task == "classification":
         ovr_results = {
             "Test Accuracy": [],
@@ -337,67 +332,78 @@ def main():
     else:
         ovr_results = {"Test MSE": [], "Test MAE": [], "Test Pearson": []}
 
+    # Create the directory for saving the logs and checkpoints
     ovr_save_pth = f"task_{train_args.task}_frozen_encoder_{model_args.freeze_encoder}_deepnet_{model_args.deepnet}_shuffle_{train_args.shuffle}_epochs_{train_args.epochs}_seed_{train_args.seed}_lr_{train_args.lr}_bs_{train_args.batch_size}_wd_{train_args.weight_decay}_folds_{train_args.folds}_layer_{model_args.layer_num}_mlp_{model_args.use_mlp}/"
+
+    # In case the directory doesn't exist
     if not os.path.exists(f"{train_args.log_dir}/" + ovr_save_pth):
         os.mkdir(f"{train_args.log_dir}/" + ovr_save_pth)
 
+    # Open the log file
     ovr_log = open(f"{train_args.log_dir}/{ovr_save_pth}/ovr.log", "w")
 
-    # Overall dataset
+    # Overall dataset file name
     if train_args.non_overlapping:
-        csv_name = "non_overlapping_all_gait" 
+        csv_name = "non_overlapping_all_gait"
     else:
         csv_name = "all_gait"
-        
-    data = pd.read_csv("data/" + csv_name + ".csv", index_col=None)
-    if train_args.debug:
-        inds = list(range(len(data)))
-        random.shuffle(inds)
-        inds = sorted(inds[:300])
-        data = data.iloc[inds, :]
 
+    # Load the data
+    data = pd.read_csv("data/" + csv_name + ".csv", index_col=None)
+
+    # Split the data
     train_inds, val_inds, test_inds = train_val_test_split_inds(
         data, train_args.task, train_args.do_test_split, train_args.shuffle)
 
+    # Save the test indices if testing is enabled
     if train_args.do_test_split:
-        # Save the test indices
         with open(f"{train_args.log_dir}/" + ovr_save_pth + "/test_inds.pkl",
                   "wb") as f:
             pickle.dump((test_inds), f)
 
+    # Start k-fold cross validation
     for fold, train_split, val_split in zip(range(train_args.folds),
                                             train_inds, val_inds):
 
+        # Create a directory for the fold
         fold_save_pth = f"fold_{fold}"
         if not os.path.exists(f"{train_args.log_dir}/" + ovr_save_pth +
                               fold_save_pth):
             os.mkdir(f"{train_args.log_dir}/" + ovr_save_pth + fold_save_pth)
 
+        # Open the log file for this fold
         log = open(
             f"{train_args.log_dir}/{ovr_save_pth}/{fold_save_pth}/training.log",
             "w")
 
-        log_list = [log, ovr_log]
+        loggers = [log, ovr_log]  # used by the utility function
 
-        # Save the indices
+        # Save the indices for later evaluation (if any)
         with open(
                 f"{train_args.log_dir}/" + ovr_save_pth + fold_save_pth +
                 "/inds.pkl", "wb") as f:
             pickle.dump((train_split, val_split), f)
-        # Load data
-        train_data = ATAXIADataset(train_split, train_args.task, csv_name=csv_name)
-        val_data = ATAXIADataset(val_split, train_args.task, csv_name=csv_name)
-        if train_args.do_test_split:
-            test_data = ATAXIADataset(test_inds, train_args.task, csv_name=csv_name)
 
+        # Load data
+        train_data = ATAXIADataset(train_split,
+                                   train_args.task,
+                                   csv_name=csv_name)
+        val_data = ATAXIADataset(val_split, train_args.task, csv_name=csv_name)
+
+        # create a test dataset if testing is enabled
         if train_args.do_test_split:
-            # print distribution of labels in the test set.
+            test_data = ATAXIADataset(test_inds,
+                                      train_args.task,
+                                      csv_name=csv_name)
+
+        # print distribution of labels in the test set.
+        if train_args.do_test_split:
             to_print = f"Distribution of labels in the test set : {np.unique(test_data.labels, return_counts=True)}\n"
-            print_and_log(to_print, log_list)
+            print_and_log(to_print, loggers)
 
         # print distribution of labels in the test set.
         to_print = f"Distribution of labels in the Val set : {np.unique(val_data.labels, return_counts=True)}\n"
-        print_and_log(to_print, log_list)
+        print_and_log(to_print, loggers)
 
         # Create the dataloaders
         train_loader = DataLoader(train_data,
@@ -412,7 +418,7 @@ def main():
                                      shuffle=False)
 
         # Load the model
-        if model_args.layer_num == -2:
+        if model_args.layer_num == -2:  # MLP
             model = MLP(task=train_args.task)
         else:
             model = TruncatedModel(model_args.layer_num, model_args.use_mlp,
@@ -423,7 +429,13 @@ def main():
                 model.load_state_dict(
                     state_dict, strict=False
                 )  # strict=False because we are loading a subset of the model
+
+        # Move the model to GPU if available
         if torch.cuda.is_available():
+            if torch.cuda.device_count() > 1:
+                print(
+                    "This code is not optimized to be used with multiple GPUs. Will use only one GPU."
+                )
             model = model.to("cuda:0")
 
         # Define the optimizer
@@ -445,36 +457,43 @@ def main():
                        name=str(fold),
                        group=ovr_save_pth)
 
+        # Used for checkpointing and early stopping
         best_model = None
         patience = train_args.patience
         best_acc = 0.0
         best_mae = float('inf')
-
         acc, f1, auc, mse, mae, pearson = None, None, None, None, None, None
 
         # Training loop
         for epoch in range(train_args.epochs):
 
+            # One epoch of training
             mean_loss = train_step(model, train_loader, optimizer, criterion,
                                    train_args.task)
 
+            # Logging
             if train_args.with_tracking:
                 wandb.log({"Train Loss": mean_loss}, step=epoch)
 
+            # Print and log the loss every log_every epochs
             if epoch % train_args.log_every == 0:
                 to_print = f"Fold : {fold}, Epoch : {epoch}, Loss : {mean_loss}\n"
-                print_and_log(to_print, log_list)
+                print_and_log(to_print, loggers)
 
+            # Save the model every save_every epochs
             if epoch % train_args.save_every == 0:
                 torch.save(
                     model.state_dict(),
                     f"{train_args.log_dir}/{ovr_save_pth}/{fold_save_pth}/model_{epoch}.pth",
                 )
 
+            # Evaluate the model every eval_every epochs
             if epoch % train_args.eval_every == 0:
 
+                # Validation
                 preds, labels, val_loss = validate(model, val_loader,
                                                    train_args.task)
+
                 if train_args.task == "classification":
                     acc, f1, auc = evaluate(preds, labels, train_args.task)
                     to_print = f"Fold : {fold}, Epoch : {epoch}, Validation Accuracy : {acc}, Validation F1 : {f1}, Validation AUC : {auc}\n"
@@ -482,7 +501,10 @@ def main():
                     mse, mae, pearson = evaluate(preds, labels,
                                                  train_args.task)
                     to_print = f"Fold : {fold}, Epoch : {epoch}, Validation MSE : {mse}, Validation MAE : {mae}, Validation Pearson : {pearson}\n"
-                print_and_log(to_print, log_list)
+
+                # Print and log the validation results for that evaluation
+                print_and_log(to_print, loggers)
+
                 if train_args.with_tracking:
                     if train_args.task == "classification":
                         wandb.log(
@@ -505,6 +527,7 @@ def main():
                             step=epoch,
                         )
 
+                # Save the best model and check for early stopping
                 if (acc != None and acc >= best_acc) or (
                         mae != None and mae <= best_mae
                 ):  # >= because usually, a later match will have lower loss.
@@ -533,12 +556,12 @@ def main():
                         best_model,
                         f"{train_args.log_dir}/{ovr_save_pth}/{fold_save_pth}/best_model.pth",
                     )
-                    print_and_log(to_print, log_list)
+                    print_and_log(to_print, loggers)
                 else:
                     patience -= 1
                     if patience == 0:
                         to_print = "EXITING THROUGH AN EARLY STOP.\n"
-                        print_and_log(to_print, log_list)
+                        print_and_log(to_print, loggers)
                         break
 
         # Final evaluation on the best model
@@ -547,6 +570,7 @@ def main():
         )["model"]
         model.load_state_dict(state_dict)
 
+        # In case of testing, use the test_loader, else use the val_loader
         if not train_args.do_test_split:
             test_loader = val_loader
 
@@ -557,11 +581,16 @@ def main():
         else:
             mse, mae, pearson = evaluate(preds, labels, train_args.task)
             to_print = f"Fold : {fold}, Final Evaluation\nTest MSE : {mse}, Test MAE : {mae}, Test Pearson : {pearson}\n"
-        print_and_log(to_print, log_list)
+        print_and_log(to_print, loggers)
+
+        # close the log file for this fold
         log.close()
+
+        # Terminate wandb run
         if train_args.with_tracking:
             wandb.finish()
 
+        # Save the results for this fold
         if train_args.task == "classification":
             ovr_results["Test Accuracy"].append(acc)
             ovr_results["Test F1"].append(f1)
@@ -592,7 +621,7 @@ def main():
         to_print = f"Mean Test MSE : {mean_mse}, Mean Test MAE : {mean_mae}, Mean Test Pearson : {mean_pearson}\n"
     print(to_print, end="")
     ovr_log.write(to_print)
-    ovr_log.close()  # .close() will anyways flush
+    ovr_log.close()
 
 
 if __name__ == "__main__":
