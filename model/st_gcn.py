@@ -23,9 +23,15 @@ LAYER2DIM = {
     8: 256,
     9: 256,
     -1: 256,
-    "all": 400,
 }
 
+class Printer(nn.Module):
+    def __init__(self):
+        super().__init__()
+        
+    def forward(self, x):
+        print(x.shape)
+        return x
 
 class Model(nn.Module):
     r"""Spatial temporal graph convolutional networks.
@@ -47,20 +53,20 @@ class Model(nn.Module):
             :math:`M_{in}` is the number of instance in a frame.
     """
 
-    def __init__(
-        self,
-        in_channels,
-        num_class,
-        graph_args,
-        edge_importance_weighting,
-        return_hidden_states=False,
-        **kwargs
-    ):
+    def __init__(self,
+                 in_channels,
+                 num_class,
+                 graph_args,
+                 edge_importance_weighting,
+                 return_hidden_states=False,
+                 **kwargs):
         super().__init__()
 
         # load graph
         self.graph = Graph(**graph_args)
-        A = torch.tensor(self.graph.A, dtype=torch.float32, requires_grad=False)
+        A = torch.tensor(self.graph.A,
+                         dtype=torch.float32,
+                         requires_grad=False)
         self.register_buffer("A", A)
 
         # build networks
@@ -69,26 +75,25 @@ class Model(nn.Module):
         kernel_size = (temporal_kernel_size, spatial_kernel_size)
         self.data_bn = nn.BatchNorm1d(in_channels * A.size(1))
         kwargs0 = {k: v for k, v in kwargs.items() if k != "dropout"}
-        self.st_gcn_networks = nn.ModuleList(
-            (
-                st_gcn(in_channels, 64, kernel_size, 1, residual=False, **kwargs0),
-                st_gcn(64, 64, kernel_size, 1, **kwargs),
-                st_gcn(64, 64, kernel_size, 1, **kwargs),
-                st_gcn(64, 64, kernel_size, 1, **kwargs),
-                st_gcn(64, 128, kernel_size, 2, **kwargs),
-                st_gcn(128, 128, kernel_size, 1, **kwargs),
-                st_gcn(128, 128, kernel_size, 1, **kwargs),
-                st_gcn(128, 256, kernel_size, 2, **kwargs),
-                st_gcn(256, 256, kernel_size, 1, **kwargs),
-                st_gcn(256, 256, kernel_size, 1, **kwargs),
-            )
-        )
+        self.st_gcn_networks = nn.ModuleList((
+            st_gcn(in_channels, 64, kernel_size, 1, residual=False, **kwargs0),
+            st_gcn(64, 64, kernel_size, 1, **kwargs),
+            st_gcn(64, 64, kernel_size, 1, **kwargs),
+            st_gcn(64, 64, kernel_size, 1, **kwargs),
+            st_gcn(64, 128, kernel_size, 2, **kwargs),
+            st_gcn(128, 128, kernel_size, 1, **kwargs),
+            st_gcn(128, 128, kernel_size, 1, **kwargs),
+            st_gcn(128, 256, kernel_size, 2, **kwargs),
+            st_gcn(256, 256, kernel_size, 1, **kwargs),
+            st_gcn(256, 256, kernel_size, 1, **kwargs),
+        ))
 
         # initialize parameters for edge importance weighting
         if edge_importance_weighting:
-            self.edge_importance = nn.ParameterList(
-                [nn.Parameter(torch.ones(self.A.size())) for i in self.st_gcn_networks]
-            )
+            self.edge_importance = nn.ParameterList([
+                nn.Parameter(torch.ones(self.A.size()))
+                for i in self.st_gcn_networks
+            ])
         else:
             self.edge_importance = [1] * len(self.st_gcn_networks)
 
@@ -174,28 +179,62 @@ class TruncatedModel(Model):
             :math:`M_{in}` is the number of instance in a frame.
     """
 
-    def __init__(self, layer=4, use_mlp=False, task="classification"):
+    def __init__(self,
+                 layer=4,
+                 use_mlp=False,
+                 task="classification",
+                 freeze_encoder: bool = False,
+                 deepnet: bool = False):
 
         super().__init__(
             in_channels=3,
             num_class=400,
-            graph_args={"layout": "openpose", "strategy": "spatial"},
-            edge_importance_weighting=True,
+            graph_args={
+                "layout": "openpose",
+                "strategy": "spatial"
+            },
+            edge_importance_weighting=False if freeze_encoder else True,
             return_hidden_states=True,
         )
         self.layer = layer
         
+        if freeze_encoder:
+            self.st_gcn_networks.requires_grad_(False)
+            self.fcn.requires_grad_(False)
+
         if task == "classification":
             num_class = 2
         elif task == "regression":
             num_class = 1
         else:
             raise NotImplementedError
-
-        if use_mlp:
-            self.head = nn.Linear(LAYER2DIM[layer], num_class)
+        
+        if not deepnet:
+            if use_mlp:
+                self.head = nn.Linear(LAYER2DIM[layer], num_class)
+            else:
+                self.head = nn.Conv2d(LAYER2DIM[layer], num_class, kernel_size=1)
         else:
-            self.head = nn.Conv2d(LAYER2DIM[layer], num_class, kernel_size=1)
+            if use_mlp:
+                self.head = nn.Sequential(nn.Linear(LAYER2DIM[layer], 512),
+                                          nn.Flatten(),
+                                          Printer(),
+                                          nn.BatchNorm1d(512),
+                                          nn.ReLU(),
+                                          nn.Linear(512, 128),
+                                          nn.BatchNorm1d(512),
+                                          nn.ReLU(),
+                                          nn.Linear(128, num_class))
+                
+            else:
+                self.head = nn.Sequential(nn.Conv2d(LAYER2DIM[layer], 512, kernel_size=1),
+                                          nn.Flatten(),
+                                          nn.BatchNorm1d(512),
+                                          nn.ReLU(),
+                                          nn.Linear(512, 128),
+                                          nn.BatchNorm1d(128),
+                                          nn.ReLU(),
+                                          nn.Linear(128, num_class))
 
     def forward(self, x: torch.Tensor):
 
@@ -207,7 +246,7 @@ class TruncatedModel(Model):
             
         preds = self.head(features)
         preds = preds.view(x.size(0), -1)
-        
+
         return preds
 
 
@@ -236,16 +275,21 @@ class st_gcn(nn.Module):
 
     """
 
-    def __init__(
-        self, in_channels, out_channels, kernel_size, stride=1, dropout=0, residual=True
-    ):
+    def __init__(self,
+                 in_channels,
+                 out_channels,
+                 kernel_size,
+                 stride=1,
+                 dropout=0,
+                 residual=True):
         super().__init__()
 
         assert len(kernel_size) == 2
         assert kernel_size[0] % 2 == 1
         padding = ((kernel_size[0] - 1) // 2, 0)
 
-        self.gcn = ConvTemporalGraphical(in_channels, out_channels, kernel_size[1])
+        self.gcn = ConvTemporalGraphical(in_channels, out_channels,
+                                         kernel_size[1])
 
         self.tcn = nn.Sequential(
             nn.BatchNorm2d(out_channels),
@@ -269,7 +313,10 @@ class st_gcn(nn.Module):
 
         else:
             self.residual = nn.Sequential(
-                nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=(stride, 1)),
+                nn.Conv2d(in_channels,
+                          out_channels,
+                          kernel_size=1,
+                          stride=(stride, 1)),
                 nn.BatchNorm2d(out_channels),
             )
 

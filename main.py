@@ -18,8 +18,11 @@ from model.st_gcn import TruncatedModel
 
 class TrainArgs:
     with_tracking: bool = False
+    non_overlapping: bool = False
+    log_dir: str = "save"
     do_test_split: bool = False
     task: str = "classification"
+    debug: bool = False
     shuffle: bool = True
     run_name: str
     log_every: int = 10
@@ -37,6 +40,8 @@ class TrainArgs:
 class ModelArgs:
     layer_num: int = 4
     use_mlp: bool = False
+    freeze_encoder: bool = False
+    deepnet: bool = False
     ckpt_path: str = "models/st_gcn.kinetics.pt"
 
 
@@ -44,7 +49,10 @@ def parse_args() -> Tuple[TrainArgs, ModelArgs]:
     '''
     Args available -
     --with_tracking: bool = False
+    --non_overlapping: bool = False
+    --log_dir: str = "save"
     --do_test_split: bool = False
+    --debug: bool = False
     --task: str = "classification"
     --no_shuffle: bool = False
     --log_every: int = 10
@@ -59,6 +67,8 @@ def parse_args() -> Tuple[TrainArgs, ModelArgs]:
     --seed: int = 42
     --layer_num: int = 4
     --use_mlp: bool = False
+    --freeze_encoder: bool = False
+    --deepnet: bool = False
     --ckpt_path: str = "models/st_gcn.kinetics.pt"
     '''
 
@@ -77,8 +87,25 @@ def parse_args() -> Tuple[TrainArgs, ModelArgs]:
         type=int,
         help="Logs to w&b (and terminal) every log_every epochs.",
     )
+    parser.add_argument(
+        "--log_dir",
+        default="save",
+        type=str,
+        help=
+        "Where to log the results. Specify without a '/' or '\\' at the end, e.g. 'save' and not 'save/' "
+    )
 
     # Training params
+    parser.add_argument(
+        "--debug",
+        default=False,
+        action='store_true',
+        help="Picks a subset of the dataset for faster debugging.")
+    parser.add_argument(
+        "--non_overlapping",
+        default=False,
+        action='store_true',
+        help="Use non-overlapping GAIT cycles.")
     parser.add_argument(
         "--task",
         default="classification",
@@ -144,6 +171,16 @@ def parse_args() -> Tuple[TrainArgs, ModelArgs]:
         help="Decides which block of STGCN (Or MLP if set to -2) is to be used."
     )
     parser.add_argument(
+        "--freeze_encoder",
+        default=False,
+        action='store_true',
+        help="Wether or not to freeze the encoder (i.e. STGCN).")
+    parser.add_argument(
+        "--deepnet",
+        default=False,
+        action='store_true',
+        help="Wether or not to use a deeper network after STGCN.")
+    parser.add_argument(
         "--use_mlp",
         default=False,
         action="store_true",
@@ -159,6 +196,9 @@ def parse_args() -> Tuple[TrainArgs, ModelArgs]:
 
     train_args = TrainArgs()
     train_args.with_tracking = args.with_tracking
+    train_args.log_dir = args.log_dir
+    train_args.debug = args.debug
+    train_args.non_overlapping = args.non_overlapping
     train_args.do_test_split = args.do_test_split
     train_args.task = args.task
     train_args.shuffle = not args.no_shuffle
@@ -179,13 +219,14 @@ def parse_args() -> Tuple[TrainArgs, ModelArgs]:
     model_args.layer_num = args.layer_num
     model_args.use_mlp = args.use_mlp
     model_args.ckpt_path = args.ckpt_path
+    model_args.deepnet = args.deepnet
+    model_args.freeze_encoder = args.freeze_encoder
 
     return train_args, model_args
 
 
 @torch.no_grad()
-def validate(model: nn.Module,
-             loader: DataLoader,
+def validate(model: nn.Module, loader: DataLoader,
              task: str) -> Tuple[np.ndarray, np.ndarray, float]:
     '''
     Validates the model on the given data.
@@ -218,7 +259,7 @@ def validate(model: nn.Module,
         if torch.cuda.is_available():
             X = X.cuda()
             y = y.cuda()
-            
+
         if task == "classification":
             features = F.softmax(model(X), dim=-1)
             test_loss = F.cross_entropy(features, y)
@@ -296,42 +337,59 @@ def main():
     else:
         ovr_results = {"Test MSE": [], "Test MAE": [], "Test Pearson": []}
 
-    ovr_save_pth = f"task_{train_args.task}_shuffle_{train_args.shuffle}_epochs_{train_args.epochs}_seed_{train_args.seed}_lr_{train_args.lr}_bs_{train_args.batch_size}_wd_{train_args.weight_decay}_folds_{train_args.folds}_layer_{model_args.layer_num}_mlp_{model_args.use_mlp}/"
-    if not os.path.exists("save/" + ovr_save_pth):
-        os.mkdir("save/" + ovr_save_pth)
+    ovr_save_pth = f"task_{train_args.task}_frozen_encoder_{model_args.freeze_encoder}_deepnet_{model_args.deepnet}_shuffle_{train_args.shuffle}_epochs_{train_args.epochs}_seed_{train_args.seed}_lr_{train_args.lr}_bs_{train_args.batch_size}_wd_{train_args.weight_decay}_folds_{train_args.folds}_layer_{model_args.layer_num}_mlp_{model_args.use_mlp}/"
+    if not os.path.exists(f"{train_args.log_dir}/" + ovr_save_pth):
+        os.mkdir(f"{train_args.log_dir}/" + ovr_save_pth)
 
-    ovr_log = open(f"save/{ovr_save_pth}/ovr.log", "w")
+    ovr_log = open(f"{train_args.log_dir}/{ovr_save_pth}/ovr.log", "w")
 
     # Overall dataset
-    data = pd.read_csv("data/all_gait.csv", index_col=None)
-    train_inds, val_inds, test_inds = train_val_test_split_inds(data, train_args.task, train_args.do_test_split)
-    
+    if train_args.non_overlapping:
+        csv_name = "non_overlapping_all_gait" 
+    else:
+        csv_name = "all_gait"
+        
+    data = pd.read_csv("data/" + csv_name + ".csv", index_col=None)
+    if train_args.debug:
+        inds = list(range(len(data)))
+        random.shuffle(inds)
+        inds = sorted(inds[:300])
+        data = data.iloc[inds, :]
+
+    train_inds, val_inds, test_inds = train_val_test_split_inds(
+        data, train_args.task, train_args.do_test_split, train_args.shuffle)
+
     if train_args.do_test_split:
         # Save the test indices
-        with open("save/" + ovr_save_pth + "/test_inds.pkl", "wb") as f:
+        with open(f"{train_args.log_dir}/" + ovr_save_pth + "/test_inds.pkl",
+                  "wb") as f:
             pickle.dump((test_inds), f)
 
     for fold, train_split, val_split in zip(range(train_args.folds),
                                             train_inds, val_inds):
 
         fold_save_pth = f"fold_{fold}"
-        if not os.path.exists("save/" + ovr_save_pth + fold_save_pth):
-            os.mkdir("save/" + ovr_save_pth + fold_save_pth)
+        if not os.path.exists(f"{train_args.log_dir}/" + ovr_save_pth +
+                              fold_save_pth):
+            os.mkdir(f"{train_args.log_dir}/" + ovr_save_pth + fold_save_pth)
 
-        log = open(f"save/{ovr_save_pth}/{fold_save_pth}/training.log", "w")
+        log = open(
+            f"{train_args.log_dir}/{ovr_save_pth}/{fold_save_pth}/training.log",
+            "w")
 
         log_list = [log, ovr_log]
 
         # Save the indices
-        with open("save/" + ovr_save_pth + fold_save_pth + "/inds.pkl",
-                  "wb") as f:
+        with open(
+                f"{train_args.log_dir}/" + ovr_save_pth + fold_save_pth +
+                "/inds.pkl", "wb") as f:
             pickle.dump((train_split, val_split), f)
         # Load data
-        train_data = ATAXIA(train_split, train_args.task)
-        val_data = ATAXIA(val_split, train_args.task)
+        train_data = ATAXIA(train_split, train_args.task, csv_name=csv_name)
+        val_data = ATAXIA(val_split, train_args.task, csv_name=csv_name)
         if train_args.do_test_split:
-            test_data = ATAXIA(test_inds, train_args.task)
-            
+            test_data = ATAXIA(test_inds, train_args.task, csv_name=csv_name)
+
         if train_args.do_test_split:
             # print distribution of labels in the test set.
             to_print = f"Distribution of labels in the test set : {np.unique(test_data.labels, return_counts=True)}\n"
@@ -350,20 +408,21 @@ def main():
                                 shuffle=False)
         if train_args.do_test_split:
             test_loader = DataLoader(test_data,
-                                    batch_size=train_args.batch_size,
-                                    shuffle=False)
+                                     batch_size=train_args.batch_size,
+                                     shuffle=False)
 
         # Load the model
         if model_args.layer_num == -2:
             model = MLP(task=train_args.task)
         else:
-            model = TruncatedModel(model_args.layer_num,
-                                   model_args.use_mlp,
-                                   task=train_args.task)
-            state_dict = torch.load(model_args.ckpt_path)
-            model.load_state_dict(
-                state_dict, strict=False
-            )  # strict=False because we are loading a subset of the model
+            model = TruncatedModel(model_args.layer_num, model_args.use_mlp,
+                                   train_args.task, model_args.freeze_encoder,
+                                   model_args.deepnet)
+            if model_args.ckpt_path != 'None':
+                state_dict = torch.load(model_args.ckpt_path)
+                model.load_state_dict(
+                    state_dict, strict=False
+                )  # strict=False because we are loading a subset of the model
         if torch.cuda.is_available():
             model = model.to("cuda:0")
 
@@ -390,13 +449,14 @@ def main():
         patience = train_args.patience
         best_acc = 0.0
         best_mae = float('inf')
-        
+
         acc, f1, auc, mse, mae, pearson = None, None, None, None, None, None
 
         # Training loop
         for epoch in range(train_args.epochs):
 
-            mean_loss = train_step(model, train_loader, optimizer, criterion, train_args.task)
+            mean_loss = train_step(model, train_loader, optimizer, criterion,
+                                   train_args.task)
 
             if train_args.with_tracking:
                 wandb.log({"Train Loss": mean_loss}, step=epoch)
@@ -408,12 +468,13 @@ def main():
             if epoch % train_args.save_every == 0:
                 torch.save(
                     model.state_dict(),
-                    f"save/{ovr_save_pth}/{fold_save_pth}/model_{epoch}.pth",
+                    f"{train_args.log_dir}/{ovr_save_pth}/{fold_save_pth}/model_{epoch}.pth",
                 )
 
             if epoch % train_args.eval_every == 0:
 
-                preds, labels, val_loss = validate(model, val_loader, train_args.task)
+                preds, labels, val_loss = validate(model, val_loader,
+                                                   train_args.task)
                 if train_args.task == "classification":
                     acc, f1, auc = evaluate(preds, labels, train_args.task)
                     to_print = f"Fold : {fold}, Epoch : {epoch}, Validation Accuracy : {acc}, Validation F1 : {f1}, Validation AUC : {auc}\n"
@@ -444,7 +505,9 @@ def main():
                             step=epoch,
                         )
 
-                if (acc != None and acc >= best_acc) or (mae != None and mae <= best_mae):  # >= because usually, a later match will have lower loss.
+                if (acc != None and acc >= best_acc) or (
+                        mae != None and mae <= best_mae
+                ):  # >= because usually, a later match will have lower loss.
                     patience = train_args.patience
                     best_acc = acc
                     best_mae = mae
@@ -468,7 +531,7 @@ def main():
                         to_print = f"Best model saved at epoch {epoch} with MAE of {mae}\n"
                     torch.save(
                         best_model,
-                        f"save/{ovr_save_pth}/{fold_save_pth}/best_model.pth",
+                        f"{train_args.log_dir}/{ovr_save_pth}/{fold_save_pth}/best_model.pth",
                     )
                     print_and_log(to_print, log_list)
                 else:
@@ -480,9 +543,10 @@ def main():
 
         # Final evaluation on the best model
         state_dict = torch.load(
-            f"save/{ovr_save_pth}/{fold_save_pth}/best_model.pth")["model"]
+            f"{train_args.log_dir}/{ovr_save_pth}/{fold_save_pth}/best_model.pth"
+        )["model"]
         model.load_state_dict(state_dict)
-        
+
         if not train_args.do_test_split:
             test_loader = val_loader
 
@@ -513,7 +577,7 @@ def main():
 
     # Create a dataframe and save the results in a csv
     results = pd.DataFrame(ovr_results)
-    results.to_csv(f"save/{ovr_save_pth}/results.csv")
+    results.to_csv(f"{train_args.log_dir}/{ovr_save_pth}/results.csv")
 
     # Average the results and print them
     if train_args.task == "classification":

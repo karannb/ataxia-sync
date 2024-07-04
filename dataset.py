@@ -5,11 +5,14 @@ from torch.utils.data import Dataset
 
 
 class ATAXIA(Dataset):
-    def __init__(self, inds=None, task="classification", data_path="data"):
+    def __init__(self, inds=None, task="classification", data_path="data", csv_name="all_gait"):
 
         # Read df
-        df = pd.read_csv(f"{data_path}/all_gait.csv")
+        df = pd.read_csv(f"{data_path}/{csv_name}.csv")
         self.task = task
+        
+        # gait path
+        gait_path = "non_overlapping_gait_cycles" if "non_overlapping" in csv_name else "gait_cycles"
 
         # Load the split
         assert inds is not None, "Please provide the split indices"
@@ -28,7 +31,7 @@ class ATAXIA(Dataset):
             else:
                 raise NotImplementedError
             cycle = np.load(
-                f"{data_path}/gait_cycles/{record['video']}/{record['gait']}")
+                f"{data_path}/{gait_path}/{record['video']}/{record['gait']}")
             data = cycle.copy()
             while data.shape[0] < 75:
                 data = np.concatenate([data, cycle], axis=0)

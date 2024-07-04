@@ -1,5 +1,6 @@
 # user defined
 data/
+results/
 ckpts/
 plots/
 save/

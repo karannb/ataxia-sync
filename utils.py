@@ -6,6 +6,7 @@ import itertools
 import numpy as np
 import pandas as pd
 from typing import List, Tuple
+import matplotlib.pyplot as plt
 from scipy.stats import pearsonr
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score
 
@@ -54,8 +55,9 @@ def splitter(len_or_list) -> Tuple[List[int], List[int]]:
         raise NotImplementedError
 
 
-def get_10_folds(train_val_inds,
-                 shuffle: bool = True) -> Tuple[List[List[int]], List[List[int]]]:
+def get_10_folds(
+        train_val_inds,
+        shuffle: bool = True) -> Tuple[List[List[int]], List[List[int]]]:
     '''
     Splits the data into 10 folds for cross-validation.
     
@@ -91,9 +93,11 @@ def get_10_folds(train_val_inds,
 
 
 def train_val_test_split_inds(
-        df: pd.DataFrame,
-        task: str, do_test_split: bool = False,
-        shuffle: bool = True) -> Tuple[List[List[int]], List[List[int]], List[int]]:
+    df: pd.DataFrame,
+    task: str,
+    do_test_split: bool = False,
+    shuffle: bool = True
+) -> Tuple[List[List[int]], List[List[int]], List[int]]:
     '''
     Splits the data into training, validation, and testing sets.
     
@@ -119,7 +123,7 @@ def train_val_test_split_inds(
         List of indices for testing data.
         [] if do_test_split is False.
     '''
-    
+
     if do_test_split:
         if task == "classification":
             vids_plus = [int(x) for x in os.listdir("data/gait_cycles/") if \
@@ -141,7 +145,7 @@ def train_val_test_split_inds(
         # df[df["video"] == i]["index"].tolist() returns the indices of the video i
         # then I make a flat list of all the indices of the holdout videos using
         # `itertools.chain`
-    
+
     else:
         test_inds = []
 
@@ -216,8 +220,60 @@ def evaluate(preds: np.ndarray, labels: np.ndarray,
         raise NotImplementedError
 
 
-# if __name__ == '__main__':
+def get_mean_and_std(csv_path: str, round_off=True):
+    
+    csv = pd.read_csv(csv_path)
+    
+    cols = []
+    mus = []
+    sigmas = []
+    
+    for col in csv.columns:
+        
+        cols.append(col)
+        mu = csv[col].mean()
+        sigma = csv[col].std()
+        if round_off:
+            mu = round(mu, 4)
+            sigma = round(sigma, 4)
+        mus.append(mu)
+        sigmas.append(sigma)
+        
+    new_df = pd.DataFrame({"Name" : cols, "Mu" : mus, "Sigma" : sigmas})
+    
+    print(new_df)
+    
 
-#     data = pd.read_csv("data/all_gait.csv", index_col=None)
-#     train, val, test = train_val_test_split_inds(data)
-#     print(len(train[0]), len(val[0]), len(test))
+if __name__ == '__main__':
+
+    pd.set_option('display.precision', 10)
+    root_dir = "ablation"
+    for folder in os.listdir(root_dir):
+        if "regression" in folder:
+            csv_path = os.path.join(root_dir, folder, "results.csv")
+            if os.path.exists(csv_path):
+                print("*"*50)
+                print(folder)
+                get_mean_and_std(csv_path, True)
+    
+    # # Load the data
+    # csv = pd.read_csv("data/overall.csv", index_col=None)["score"]
+
+    # # Convert scores greater than 3 to 3
+    # # csv[csv > 3] = 3
+
+    # # Calculate value counts
+    # sorted_cnts = csv.value_counts().sort_index()
+
+    # # Plot the value counts
+    # ax = sorted_cnts.plot(kind="bar")
+    # plt.ylabel("Number of patients")
+    # plt.xlabel("Score")
+
+    # # Modify the x-axis labels to show ">3" for the score 3
+    # labels = [str(x) for x in sorted_cnts.index] # if x != 3 else ">3"
+    # ax.set_xticklabels(labels, rotation=0)
+
+    # # Save the plot
+    # plt.savefig('data/dist_score.png')
+    # plt.close('all')
