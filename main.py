@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 
 from utils import *
 from model.MLP import MLP
-from dataset import ATAXIA
+from dataset import ATAXIADataset
 from model.st_gcn import TruncatedModel
 
 
@@ -385,10 +385,10 @@ def main():
                 "/inds.pkl", "wb") as f:
             pickle.dump((train_split, val_split), f)
         # Load data
-        train_data = ATAXIA(train_split, train_args.task, csv_name=csv_name)
-        val_data = ATAXIA(val_split, train_args.task, csv_name=csv_name)
+        train_data = ATAXIADataset(train_split, train_args.task, csv_name=csv_name)
+        val_data = ATAXIADataset(val_split, train_args.task, csv_name=csv_name)
         if train_args.do_test_split:
-            test_data = ATAXIA(test_inds, train_args.task, csv_name=csv_name)
+            test_data = ATAXIADataset(test_inds, train_args.task, csv_name=csv_name)
 
         if train_args.do_test_split:
             # print distribution of labels in the test set.
