@@ -1,4 +1,4 @@
-# ataxia-sync
+# ataxia-syn
 Spatio Temporal GCN for Ataxia Detection.
 
 ## Data Preparation
