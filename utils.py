@@ -96,7 +96,7 @@ def get_10_folds(
                               train_val_inds[end_idx:])
         return train_inds, val_inds
     else:
-        raise NotImplementedError, "train_val_inds should be a list"
+        raise NotImplementedError("train_val_inds should be a list")
 
 
 def train_val_test_split_inds(
