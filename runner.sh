@@ -8,10 +8,21 @@
 #SBATCH --error=logs/err_%j.log
 #SBATCH --time=1-00:00:00
 
-python3 main.py --log_every 25 --batch_size 64 --epochs 500 --lr 3e-5 \
- --weight_decay 0 --folds 10 --eval_every 50 --save_every 100 \
- --patience 20 --seed 40 --layer_num 6 --task regression --log_dir results \
- --ckpt_path ckpts/st_gcn.kinetics.pt --non_overlapping
+python3 stc/trainer.py \
+    --log_every 25 \
+    --batch_size 64 \
+    --epochs 500 \
+    --lr 3e-5 \
+    --weight_decay 0 \
+    --folds 10 \
+    --eval_every 50 \
+    --save_every 100 \
+    --patience 20 \
+    --seed 40 \
+    --layer_num 6 \
+    --task regression \
+    --log_dir results \
+    --ckpt_path ckpts/st_gcn.kinetics.pt \
 
 # additional args - 
 # --with_tracking
@@ -20,4 +31,4 @@ python3 main.py --log_every 25 --batch_size 64 --epochs 500 --lr 3e-5 \
 # --no_shuffle
 # --deepnet
 # --freeze_encoder
-# --non_overlapping
+# --overlapping

@@ -1,13 +1,21 @@
 import os
 import numpy as np
+from typing import List, Tuple
 import matplotlib.pyplot as plt
 from scipy.signal import savgol_filter, find_peaks
 
 
-def moving_average_filter(data, N):
-    '''
-    -
-    '''
+def movingAverageFilter(data, N) -> List:
+    """
+    Simple Moving average
+
+    Args:
+        data (ndarray): input data, shape (L)
+        N (int): window size
+
+    Returns:
+        filtered_data: shape (L)
+    """
     filtered_data = []
     for i in range(len(data)):
         if i < N - 1:
@@ -20,11 +28,18 @@ def moving_average_filter(data, N):
     return filtered_data
 
 
-def calcDiff(video: int, keypoints: tuple = (11, 14)):
-    '''
-    Plots the moving average of the difference between the 
-    0th and 1st elements of the keypoints tuple.
-    '''
+def calcDiff(video: int, keypoints: tuple = (11, 14)) -> List:
+    """
+    Plots the difference between the left and right keypoints for the foot.
+    Helps w/ detecting gait cycles.
+
+    Args:
+        video (int): video number
+        keypoints (tuple, optional): tuple containing the keypoint locations of the left and right foot. Defaults to (11, 14).
+
+    Returns:
+        plot_list: list of differences
+    """
     left, right = keypoints
     plot_list = []
 
@@ -36,7 +51,7 @@ def calcDiff(video: int, keypoints: tuple = (11, 14)):
         plot_list.append(np.linalg.norm(left_keypoints[i] -
                                         right_keypoints[i]))  #
 
-    plot_list = moving_average_filter(plot_list, 11)
+    plot_list = movingAverageFilter(plot_list, 11)
 
     window = 11
     plot_list = savgol_filter(plot_list, window, 4)
@@ -45,10 +60,14 @@ def calcDiff(video: int, keypoints: tuple = (11, 14)):
 
 
 def plotDiff(plot_list: list, peaks: list, video: int):
-    '''
-    Plots the moving average of the difference between the 
-    0th and 1st elements of the keypoints tuple.
-    '''
+    """
+    Plots the moving average computed using `calcDiff` and marks the peaks.
+
+    Args:
+        plot_list (list): output of `calcDiff`
+        peaks (list): list of peaks
+        video (int): video number (used to save the plot)
+    """
 
     plt.plot(plot_list)
     for peak in peaks:
@@ -60,27 +79,43 @@ def plotDiff(plot_list: list, peaks: list, video: int):
     return
 
 
-def findPeaks(video: int):
-    '''
-    Finds peaks in the plot.
-    '''
+def findPeaks(video: int) -> List:
+    """
+    Find the peaks in the `calcDiff` output,
+    also plots the whole graph with the peaks marked.
+
+    Args:
+        video (int): video number
+
+    Returns:
+        peaks (list): list of peaks
+    """
     plot_list = calcDiff(video)
 
-    peaks, _ = find_peaks(plot_list, distance=15)  #, height=0.05
+    peaks, _ = find_peaks(plot_list, distance=15)
 
     plotDiff(plot_list, peaks, video)
 
     return peaks
 
 
-def store_gait_cycles(video: int, peaks: list, non_overlapping: bool = False):
-    '''
-    Stores the gait cycles in a numpy array.
-    3 peaks => one gait cycle; we are storing
-    in an overlapping manner, so [1, 2, 3] and 
+def storeGAITCycles(video: int, peaks: list, non_overlapping: bool = False) -> Tuple[List, int]:
+    """
+    Store the gait cycles in a numpy array.
+    3 peaks => one gait cycle; if we are storing
+    in an overlapping manner, so [1, 2, 3] and
     [2, 3, 4] are two gait cycles, with the second
     one overlapping with the first.
-    '''
+
+    Args:
+        video (int): video number
+        peaks (list): list of peaks
+        non_overlapping (bool, optional): _description_. Defaults to False.
+
+    Returns:
+        gait_lengths (list): lengths of the gait cycles
+        len(gait_cycles) (int): number of gait cycles
+    """
     video_keypoints = np.load(f"data/final_keypoints/{video}/kypts.npy")
     gait_cycles = []
     gait_lengths = []
@@ -107,7 +142,7 @@ def store_gait_cycles(video: int, peaks: list, non_overlapping: bool = False):
             gait_lengths.append(end - begin)
             if non_overlapping:
                 add2i = 3
-        i += add2i  # for the overlapping case, this is just a while loop.
+        i += add2i  # for the overlapping case, this is a simple while loop.
 
     directory = f"data/non_overlapping_gait_cycles" if non_overlapping else f"data/gait_cycles"
 
@@ -128,36 +163,25 @@ if __name__ == "__main__":
             continue
         peaks = findPeaks(video)
         if len(peaks) <= 2:
-            print(f"Video {video}")
+            print(f"Less than 2 peaks for Video {video}")
         peak_lengths.append(len(peaks))
-        gait_lengths, num_gaits = store_gait_cycles(video,
-                                                    peaks,
-                                                    non_overlapping=True)
+        gait_lengths, num_gaits = storeGAITCycles(video, peaks,
+                                                  non_overlapping=True)
 
         if num_gaits == 0:
-            print(f"Video {video} Gait Lengths: {gait_lengths} Peaks: {peaks}")
+            print(f"No Gait Cycles for Video {video} Gait Lengths: {gait_lengths} Peaks: {peaks}")
         ovr_gait_lengths.extend(gait_lengths)
         gaits.append(num_gaits)
 
-    print(
-        f"Minimum number of peaks: {min(peak_lengths)} at {peak_lengths.index(min(peak_lengths))}"
-    )
+    print(f"Minimum number of peaks: {min(peak_lengths)} at {peak_lengths.index(min(peak_lengths))}")
     print(f"Average number of peaks: {sum(peak_lengths) / len(peak_lengths)}")
     print(f"Maximum number of peaks: {max(peak_lengths)}")
 
-    print(
-        f"Minimum number of gait cycles: {min(gaits)} at {gaits.index(min(gaits))}"
-    )
+    print(f"Minimum number of gait cycles: {min(gaits)} at {gaits.index(min(gaits))}")
     print(f"Average number of gait cycles: {sum(gaits) / len(gaits)}")
     print(f"Maximum number of gait cycles: {max(gaits)}")
 
     print(f"Number of gait cycles: {len(ovr_gait_lengths)}")
-    print(
-        f"Minimum length of gait cycle: {min(ovr_gait_lengths)} at {ovr_gait_lengths.index(min(ovr_gait_lengths))}"
-    )
-    print(
-        f"Average length of gait cycle: {sum(ovr_gait_lengths) / len(ovr_gait_lengths)}"
-    )
-    print(
-        f"Maximum length of gait cycle: {max(ovr_gait_lengths)} at {ovr_gait_lengths.index(max(ovr_gait_lengths))}"
-    )
+    print(f"Minimum length of gait cycle: {min(ovr_gait_lengths)} at {ovr_gait_lengths.index(min(ovr_gait_lengths))}")
+    print(f"Average length of gait cycle: {sum(ovr_gait_lengths) / len(ovr_gait_lengths)}")
+    print(f"Maximum length of gait cycle: {max(ovr_gait_lengths)} at {ovr_gait_lengths.index(max(ovr_gait_lengths))}")
