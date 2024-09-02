@@ -5,9 +5,16 @@ from scipy.signal import savgol_filter, find_peaks
 
 
 def moving_average_filter(data, N):
-    '''
-    -
-    '''
+    """
+    Simple Moving average
+
+    Args:
+        data (ndarray): input data, shape (L)
+        N (int): window size
+
+    Returns:
+        filtered_data: shape (L)
+    """
     filtered_data = []
     for i in range(len(data)):
         if i < N - 1:
@@ -139,25 +146,15 @@ if __name__ == "__main__":
         ovr_gait_lengths.extend(gait_lengths)
         gaits.append(num_gaits)
 
-    print(
-        f"Minimum number of peaks: {min(peak_lengths)} at {peak_lengths.index(min(peak_lengths))}"
-    )
+    print(f"Minimum number of peaks: {min(peak_lengths)} at {peak_lengths.index(min(peak_lengths))}")
     print(f"Average number of peaks: {sum(peak_lengths) / len(peak_lengths)}")
     print(f"Maximum number of peaks: {max(peak_lengths)}")
 
-    print(
-        f"Minimum number of gait cycles: {min(gaits)} at {gaits.index(min(gaits))}"
-    )
+    print(f"Minimum number of gait cycles: {min(gaits)} at {gaits.index(min(gaits))}")
     print(f"Average number of gait cycles: {sum(gaits) / len(gaits)}")
     print(f"Maximum number of gait cycles: {max(gaits)}")
 
     print(f"Number of gait cycles: {len(ovr_gait_lengths)}")
-    print(
-        f"Minimum length of gait cycle: {min(ovr_gait_lengths)} at {ovr_gait_lengths.index(min(ovr_gait_lengths))}"
-    )
-    print(
-        f"Average length of gait cycle: {sum(ovr_gait_lengths) / len(ovr_gait_lengths)}"
-    )
-    print(
-        f"Maximum length of gait cycle: {max(ovr_gait_lengths)} at {ovr_gait_lengths.index(max(ovr_gait_lengths))}"
-    )
+    print(f"Minimum length of gait cycle: {min(ovr_gait_lengths)} at {ovr_gait_lengths.index(min(ovr_gait_lengths))}")
+    print(f"Average length of gait cycle: {sum(ovr_gait_lengths) / len(ovr_gait_lengths)}")
+    print(f"Maximum length of gait cycle: {max(ovr_gait_lengths)} at {ovr_gait_lengths.index(max(ovr_gait_lengths))}")

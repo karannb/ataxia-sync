@@ -27,6 +27,7 @@ LAYER2DIM = {
 }
 
 
+
 class Model(nn.Module):
     r"""Spatial temporal graph convolutional networks.
 
@@ -209,6 +210,13 @@ class TruncatedModel(Model):
         # Freeze the encoder
         if freeze_encoder:
             self.st_gcn_networks.requires_grad_(False)
+            self.fcn.requires_grad_(False)
+
+        for i, net in enumerate(self.st_gcn_networks):
+            if (i+1 > layer) and (layer != -1):
+                net.requires_grad_(False)
+        
+        if layer != -1:
             self.fcn.requires_grad_(False)
 
         if task == "classification":
