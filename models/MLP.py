@@ -10,15 +10,13 @@ import torch.nn as nn
 class MLP(nn.Module):
 
     def __init__(self, hid_dim=512, task="classification"):
-        '''
+        """
         Builds a simple one hidden layer MLP.
+
         Args:
-        ----
-        hid_dim: int
-            The hidden dimension of the MLP.
-        task: str
-            The task to be performed. (classification or regression)
-        '''
+            hid_dim (int, optional): The hidden dimension of the MLP. Defaults to 512.
+            task (str, optional): The task to be performed (regression / classification). Defaults to "classification".
+        """
 
         super().__init__()
 

@@ -7,11 +7,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from model.utils.tgcn import ConvTemporalGraphical
-from model.utils.graph import Graph
-from model.utils.pooler import custom_pool_2d
+from models.utils.tgcn import ConvTemporalGraphical
+from models.utils.graph import Graph
+from models.utils.pooler import custom_pool_2d
 
 # Number of output channels for each layer
+# used to determine the number of features to be extracted
 LAYER2DIM = {
     0: 64,
     1: 64,
@@ -25,7 +26,6 @@ LAYER2DIM = {
     9: 256,
     -1: 256,
 }
-
 
 
 class Model(nn.Module):
@@ -159,7 +159,7 @@ class Model(nn.Module):
 
 
 class TruncatedModel(Model):
-    r"""Truncated STGCN which (ideally) uses pretrained weights from the original model,
+    r"""Truncated STGCN which uses pretrained weights from the original model (recommended),
     and return activations till a certain layer.
 
     Args:
@@ -212,13 +212,16 @@ class TruncatedModel(Model):
             self.st_gcn_networks.requires_grad_(False)
             self.fcn.requires_grad_(False)
 
+        # freeze unused parts of the encoder
         for i, net in enumerate(self.st_gcn_networks):
             if (i+1 > layer) and (layer != -1):
                 net.requires_grad_(False)
         
+        # -1 => full encoder + FCN
         if layer != -1:
             self.fcn.requires_grad_(False)
 
+        # Define the head
         if task == "classification":
             num_class = 2
         elif task == "regression":
@@ -226,6 +229,7 @@ class TruncatedModel(Model):
         else:
             raise NotImplementedError
 
+        # deepnet is just a bigger head
         if not deepnet:
             if use_mlp:
                 self.head = nn.Linear(LAYER2DIM[layer], num_class)
@@ -243,7 +247,6 @@ class TruncatedModel(Model):
                                           nn.BatchNorm1d(512), 
                                           nn.ReLU(),
                                           nn.Linear(128, num_class))
-
             else:
                 self.head = nn.Sequential(
                     nn.Conv2d(LAYER2DIM[layer], 512, kernel_size=1),

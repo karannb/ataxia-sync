@@ -13,18 +13,18 @@ class ATAXIADataset(Dataset):
                  task="classification",
                  data_path="data",
                  csv_name="all_gait"):
-        '''
+        """
+
         Args:
-        ----
-        inds: list
-            The indices of the data to be used.
-        task: str
-            The task to be performed. (classification or regression)
-        data_path: str
-            The path to the data directory.
-        csv_name: str
-            The name of the csv file containing the data.
-        '''
+            inds (_type_, optional): The indices of the data to be used. Defaults to None.
+            task (str, optional): The task to be performed. (classification or regression) Defaults to "classification".
+            data_path (str, optional): The path to the data directory. Defaults to "data".
+            csv_name (str, optional): The name of the csv file containing the data. Defaults to "all_gait".
+
+        Raises:
+            NotImplementedError: in case the task is passed incorrectly, i.e., something other than 
+            classification / regression.
+        """
 
         # Read df
         df = pd.read_csv(f"{data_path}/{csv_name}.csv")
@@ -42,8 +42,7 @@ class ATAXIADataset(Dataset):
         for ind in inds:
             record = df.iloc[ind]
             if task == "classification":
-                label = record[
-                    "label"]  # for classification task, the label is already in the csv
+                label = record["label"]  # for classification task, the label is already in the csv
             elif task == "regression":
                 label = record["score"]
                 if label >= 3:  # for the regression task, we clip the score to 3 as in Section 4.1
@@ -52,8 +51,7 @@ class ATAXIADataset(Dataset):
                 raise NotImplementedError
 
             # Load the gait cycle
-            cycle = np.load(
-                f"{data_path}/{gait_path}/{record['video']}/{record['gait']}")
+            cycle = np.load(f"{data_path}/{gait_path}/{record['video']}/{record['gait']}")
             data = cycle.copy()
             while data.shape[0] < 75:
                 # repeat the gait cycle to make it 75 frames
@@ -76,6 +74,14 @@ class ATAXIADataset(Dataset):
         return self.data[index], self.labels[index]
 
     def preprocess(self):
+        """
+        Preprocess data in the format STGCN expects input.
+        Out shape - (B, T, V, channel, M)
+
+        Raises:
+            NotImplementedError: in case the task is passed incorrectly, 
+            redundant check.
+        """
 
         # add M_in as 1 because we have
         # only one instance in each frame
@@ -102,11 +108,13 @@ class ATAXIADataset(Dataset):
         else:
             raise NotImplementedError
 
+        return
 
-# if __name__ == '__main__':
-#     data = pd.read_csv("data/all_gait.csv", index_col=None)
-#     print(data.iloc[904])
-#     data = data.iloc[:867]
-#     print(data.iloc[-1])
-#     dataset = ATAXIA(range(len(data)))
-#     print(dataset[:5][0].shape)
+
+if __name__ == '__main__':
+    data = pd.read_csv("data/all_gait.csv", index_col=None)
+    print(data.iloc[904])
+    data = data.iloc[:867]
+    print(data.iloc[-1])
+    dataset = ATAXIADataset(range(len(data)))
+    print(dataset[:5][0].shape)
