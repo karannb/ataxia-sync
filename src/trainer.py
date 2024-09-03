@@ -1,3 +1,6 @@
+import sys
+sys.path.append("./")
+
 import os
 import pickle
 import numpy as np
@@ -19,7 +22,7 @@ from src.utils import seedAll, getTrainValTest, evaluate, pLog
 class TrainArgs:
     # logging params
     with_tracking: bool = False
-    log_dir: str = "save"
+    log_dir: str = "results/graph_gait_debug"
     log_every: int = 10
 
     # training params
@@ -65,6 +68,7 @@ def parse_args() -> Tuple[TrainArgs, ModelArgs]:
         --save_every: int, save model every save_every epochs. Default: 50
         --patience: int, early stopping patience. Default: 50
         --seed: int, seed the experiment. Default: 42
+        --model_type: str, the type of model to be used (stgcn/resgcn). Default: "stgcn"
         --layer_num: int, decides which block of STGCN (Or MLP if set to -2) is to be used. Default: 4
         --freeze_encoder: bool, freeze the encoder (i.e. STGCN) or not. Default: False
         --use_mlp: bool, use a MLP instead of a Conv2d. Default: False
@@ -83,7 +87,7 @@ def parse_args() -> Tuple[TrainArgs, ModelArgs]:
                         help="Wether to track with w&b or not.",
                         )
     parser.add_argument("--log_dir",
-                        default="save",
+                        default="results/ovr_debug_final",
                         type=str,
                         help="Where to log the results. Specify without a '/' or '\\' at the end, e.g. 'save' and not 'save/' "
                         )
@@ -149,6 +153,11 @@ def parse_args() -> Tuple[TrainArgs, ModelArgs]:
                         help="Seeds the experiment.")
 
     # Model params
+    parser.add_argument("--model_type",
+                        default="stgcn",
+                        choices=["stgcn", "resgcn"],
+                        help="The type of model to be used (stgcn/resgcn)."
+                        )
     parser.add_argument("--layer_num",
                         type=int,
                         default=4,
@@ -191,6 +200,7 @@ def parse_args() -> Tuple[TrainArgs, ModelArgs]:
     seedAll(train_args.seed)
 
     model_args = ModelArgs()
+    model_args.model_type = args.model_type
     model_args.layer_num = args.layer_num
     model_args.use_mlp = args.use_mlp
     model_args.ckpt_path = args.ckpt_path
@@ -306,7 +316,9 @@ def trainer():
     # Create the directory for saving the logs and checkpoints
     ovr_save_pth = f"task_{train_args.task}_frozen_encoder_{model_args.freeze_encoder}_shuffle_{train_args.shuffle}_epochs_{train_args.epochs}_seed_{train_args.seed}_lr_{train_args.lr}_bs_{train_args.batch_size}_wd_{train_args.weight_decay}_folds_{train_args.folds}_layer_{model_args.layer_num}_mlp_{model_args.use_mlp}/"
 
-    # In case the directory doesn't exist
+    # In case the directories doesn't exist
+    if not os.path.exists(train_args.log_dir):
+        os.mkdir(train_args.log_dir)
     if not os.path.exists(f"{train_args.log_dir}/" + ovr_save_pth):
         os.mkdir(f"{train_args.log_dir}/" + ovr_save_pth)
 
@@ -348,12 +360,15 @@ def trainer():
             pickle.dump((train_split, val_split), f)
 
         # Load data
-        train_data = ATAXIADataset(train_split, train_args.task, csv_name=csv_name)
-        val_data = ATAXIADataset(val_split, train_args.task, csv_name=csv_name)
+        train_data = ATAXIADataset(train_split, train_args.task, 
+                                   csv_name=csv_name, model=model_args.model_type)
+        val_data = ATAXIADataset(val_split, train_args.task, 
+                                 csv_name=csv_name, model=model_args.model_type)
 
         # create a test dataset if testing is enabled
         if train_args.do_test_split:
-            test_data = ATAXIADataset(test_inds, train_args.task, csv_name=csv_name)
+            test_data = ATAXIADataset(test_inds, train_args.task, 
+                                      csv_name=csv_name, model=model_args.model_type)
 
         # print distribution of labels in the test set.
         if train_args.do_test_split:
@@ -385,6 +400,10 @@ def trainer():
             if model_args.ckpt_path != 'None':
                 state_dict = torch.load(model_args.ckpt_path)
                 model.load_state_dict(state_dict, strict=False)
+
+        # print the number of trainable parameters
+        to_print = f"Number of trainable parameters : {sum(p.numel() for p in model.parameters() if p.requires_grad)/1e6:.3f}M\n"
+        pLog(to_print, loggers)
 
         # Move the model to GPU if available
         if torch.cuda.is_available():

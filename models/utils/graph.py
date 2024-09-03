@@ -51,7 +51,7 @@ class Graph():
                              (0, 1), (15, 0), (14, 0), (17, 15), (16, 14)]
             self.edge = self_link + neighbor_link
             self.center = 1
-        if layout == 'resgcn':
+        elif layout == 'resgcn':
             # from https://github.com/tteepe/GaitGraph/blob/e7a3995ad7253809ad7981ba2ff30c39961a6d1a/src/datasets/graph.py#L111
             # note when using resgcn the dataset will also permute / drop some joints to match the ordering required
             self.num_node = 17
@@ -94,7 +94,7 @@ class Graph():
         # elif layout=='customer settings'
         #     pass
         else:
-            raise ValueError("Do Not Exist This Layout.")
+            raise ValueError(f"Do Not Exist This Layout. {layout}")
 
     def get_adjacency(self, strategy):
         valid_hop = range(0, self.max_hop + 1, self.dilation)
@@ -173,12 +173,3 @@ def normalize_undigraph(A):
             Dn[i, i] = Dl[i]**(-0.5)
     DAD = np.dot(np.dot(Dn, A), Dn)
     return DAD
-
-def convert_to_HRNet():
-    pass
-
-if __name__ == '__main__':
-    graph = Graph(layout='openpose', strategy='spatial', max_hop=1, dilation=1)
-    # print(graph.A)
-    print(graph.A.shape)
-    print(graph.__dir__())

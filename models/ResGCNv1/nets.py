@@ -59,6 +59,7 @@ class ResGCN(nn.Module):
 
         # N, I, C, T, V = x.size()
 
+        hidden_states = []
         # input branches
         x_cat = []
         for i, branch in enumerate(self.input_branches):
@@ -68,15 +69,17 @@ class ResGCN(nn.Module):
         # main stream
         for layer in self.main_stream:
             x = layer(x, self.A)
+            hidden_states.append(x)
 
         # output
         x = self.global_pooling(x)
+        hidden_states.append(x)
         x = self.fcn(x.squeeze())
 
         # L2 normalization
         x = F.normalize(x, dim=1, p=2)
 
-        return x
+        return x, hidden_states
 
 
 def init_param(modules):

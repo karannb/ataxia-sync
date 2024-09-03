@@ -102,8 +102,8 @@ class ATAXIADataset(Dataset):
             self.data = np.transpose(self.data, (0, 3, 1, 2, 4))
             # (batch, channel, T, V, M)
         elif model == "resgcn":
-            # this model again has one less keypoint + no confidence values + temporal sequence length of 60
-            self.data = self.data[:, :60, :, :-1] # remove the confidence values + clip to 60 frames
+            # this model again has one less keypoint + temporal sequence length of 60
+            self.data = self.data[:, :60] # clip to 60 frames
             self.data = self.data[:, :, [
                 0, 15, 14, 17, 16, 5, 2, 6, 3, 7, 4, 11, 8, 12, 9, 13, 10
             ], :, :]
