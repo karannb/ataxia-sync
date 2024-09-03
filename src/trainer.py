@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 
 from models.MLP import MLP
 from src.dataset import ATAXIADataset
-from models.st_gcn import TruncatedModel
+from models.atgcn import TruncatedSTGCN, TruncatedResGCN
 from src.utils import seedAll, getTrainValTest, evaluate, pLog
 
 
@@ -39,6 +39,7 @@ class TrainArgs:
 
 
 class ModelArgs:
+    model_type: str = "stgcn"
     layer_num: int = 4
     use_mlp: bool = False
     freeze_encoder: bool = False
@@ -372,12 +373,18 @@ def trainer():
         # Load the model
         if model_args.layer_num == -2:  # MLP
             model = MLP(task=train_args.task)
-        else:
-            model = TruncatedModel(model_args.layer_num, model_args.use_mlp,
+        elif model_args.model_type == "stgcn":
+            model = TruncatedSTGCN(model_args.layer_num, model_args.use_mlp,
                                    train_args.task, model_args.freeze_encoder)
             if model_args.ckpt_path != 'None':
                 state_dict = torch.load(model_args.ckpt_path)
                 model.load_state_dict(state_dict, strict=False)  # strict=False because we are loading a subset of the model
+        elif model_args.model_type == "resgcn":
+            model = TruncatedResGCN(model_args.layer_num, train_args.task, 
+                                    model_args.freeze_encoder)
+            if model_args.ckpt_path != 'None':
+                state_dict = torch.load(model_args.ckpt_path)
+                model.load_state_dict(state_dict, strict=False)
 
         # Move the model to GPU if available
         if torch.cuda.is_available():

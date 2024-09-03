@@ -1,5 +1,5 @@
 '''
-Taken as is from https://github.com/yysijie/st-gcn 
+Taken as modified from https://github.com/yysijie/st-gcn 
 discussed in section 3.3 of the paper.
 '''
 import numpy as np
@@ -46,12 +46,29 @@ class Graph():
         if layout == 'openpose':
             self.num_node = 18
             self_link = [(i, i) for i in range(self.num_node)]
-            neighbor_link = [(4, 3), (3, 2), (7, 6), (6, 5), (13, 12), (12,
-                                                                        11),
+            neighbor_link = [(4, 3), (3, 2), (7, 6), (6, 5), (13, 12), (12, 11),
                              (10, 9), (9, 8), (11, 5), (8, 2), (5, 1), (2, 1),
                              (0, 1), (15, 0), (14, 0), (17, 15), (16, 14)]
             self.edge = self_link + neighbor_link
             self.center = 1
+        if layout == 'resgcn':
+            # from https://github.com/tteepe/GaitGraph/blob/e7a3995ad7253809ad7981ba2ff30c39961a6d1a/src/datasets/graph.py#L111
+            # note when using resgcn the dataset will also permute / drop some joints to match the ordering required
+            self.num_node = 17
+            self_link = [(i, i) for i in range(self.num_node)]
+            neighbor_link = [(0, 1), (0, 2), (1, 3), (2, 4), (3, 5), (4, 6), (5, 6),
+                             (5, 7), (7, 9), (6, 8), (8, 10), (5, 11), (6, 12), (11, 12),
+                             (11, 13), (13, 15), (12, 14), (14, 16)]
+            self.edge = self_link + neighbor_link
+            self.center = 0
+            self.connect_joint = np.array([5, 0, 0, 1, 2, 0, 0, 5, 6, 7, 8, 5, 6, 11, 12, 13, 14])
+            self.parts = [
+                np.array([5, 7, 9]),       # left_arm
+                np.array([6, 8, 10]),      # right_arm
+                np.array([11, 13, 15]),    # left_leg
+                np.array([12, 14, 16]),    # right_leg
+                np.array([5, 6, 11, 12, 0, 1, 2, 3, 4]),  # torso + head
+            ]
         elif layout == 'ntu-rgb+d':
             self.num_node = 25
             self_link = [(i, i) for i in range(self.num_node)]
@@ -93,8 +110,7 @@ class Graph():
         elif strategy == 'distance':
             A = np.zeros((len(valid_hop), self.num_node, self.num_node))
             for i, hop in enumerate(valid_hop):
-                A[i][self.hop_dis == hop] = normalize_adjacency[self.hop_dis ==
-                                                                hop]
+                A[i][self.hop_dis == hop] = normalize_adjacency[self.hop_dis == hop]
             self.A = A
         elif strategy == 'spatial':
             A = []
@@ -105,12 +121,9 @@ class Graph():
                 for i in range(self.num_node):
                     for j in range(self.num_node):
                         if self.hop_dis[j, i] == hop:
-                            if self.hop_dis[j, self.center] == self.hop_dis[
-                                    i, self.center]:
+                            if self.hop_dis[j, self.center] == self.hop_dis[i, self.center]:
                                 a_root[j, i] = normalize_adjacency[j, i]
-                            elif self.hop_dis[j, self.
-                                              center] > self.hop_dis[i, self.
-                                                                     center]:
+                            elif self.hop_dis[j, self.center] > self.hop_dis[i, self.center]:
                                 a_close[j, i] = normalize_adjacency[j, i]
                             else:
                                 a_further[j, i] = normalize_adjacency[j, i]
@@ -160,3 +173,12 @@ def normalize_undigraph(A):
             Dn[i, i] = Dl[i]**(-0.5)
     DAD = np.dot(np.dot(Dn, A), Dn)
     return DAD
+
+def convert_to_HRNet():
+    pass
+
+if __name__ == '__main__':
+    graph = Graph(layout='openpose', strategy='spatial', max_hop=1, dilation=1)
+    # print(graph.A)
+    print(graph.A.shape)
+    print(graph.__dir__())

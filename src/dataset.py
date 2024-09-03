@@ -12,7 +12,8 @@ class ATAXIADataset(Dataset):
                  inds=None,
                  task="classification",
                  data_path="data",
-                 csv_name="all_gait"):
+                 csv_name="all_gait",
+                 model="stgcn"):
         """
 
         Args:
@@ -20,6 +21,7 @@ class ATAXIADataset(Dataset):
             task (str, optional): The task to be performed. (classification or regression) Defaults to "classification".
             data_path (str, optional): The path to the data directory. Defaults to "data".
             csv_name (str, optional): The name of the csv file containing the data. Defaults to "all_gait".
+            model (str, optional): The model to be used (one of stgcn or resgcn). Defaults to "stgcn".
 
         Raises:
             NotImplementedError: in case the task is passed incorrectly, i.e., something other than 
@@ -65,7 +67,7 @@ class ATAXIADataset(Dataset):
         self.labels = np.array(self.labels)
 
         # Preprocess data
-        self.preprocess()
+        self.preprocess(model)
 
     def __len__(self) -> int:
         return len(self.data)
@@ -73,7 +75,7 @@ class ATAXIADataset(Dataset):
     def __getitem__(self, index) -> Tuple[torch.Tensor, torch.Tensor]:
         return self.data[index], self.labels[index]
 
-    def preprocess(self):
+    def preprocess(self, model):
         """
         Preprocess data in the format STGCN expects input.
         Out shape - (B, T, V, channel, M)
@@ -96,8 +98,18 @@ class ATAXIADataset(Dataset):
             0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18
         ], :, :]  # NOTE : 8th is not selected
 
-        self.data = np.transpose(self.data, (0, 3, 1, 2, 4))
-        # (batch, channel, T, V, M)
+        if model == "stgcn":
+            self.data = np.transpose(self.data, (0, 3, 1, 2, 4))
+            # (batch, channel, T, V, M)
+        elif model == "resgcn":
+            # this model again has one less keypoint + no confidence values + temporal sequence length of 60
+            self.data = self.data[:, :60, :, :-1] # remove the confidence values + clip to 60 frames
+            self.data = self.data[:, :, [
+                0, 15, 14, 17, 16, 5, 2, 6, 3, 7, 4, 11, 8, 12, 9, 13, 10
+            ], :, :]
+            # now this expects a different format, (N, I, C, T, V)
+            # but similar to STGCN, I = M = 1
+            self.data = np.transpose(self.data, (0, 4, 3, 1, 2))
 
         # make torch tensor
         self.data = torch.tensor(self.data, dtype=torch.float32)
