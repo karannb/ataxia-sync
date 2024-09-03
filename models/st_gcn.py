@@ -1,31 +1,9 @@
-"""
-This code has been adapted from https://github.com/yysijie/st-gcn 
-to match the truncation discussed in section 3.4 of the paper.
-"""
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 from models.utils.tgcn import ConvTemporalGraphical
 from models.utils.graph import Graph
-from models.utils.pooler import custom_pool_2d
-
-# Number of output channels for each layer
-# used to determine the number of features to be extracted
-LAYER2DIM = {
-    0: 64,
-    1: 64,
-    2: 64,
-    3: 64,
-    4: 128,
-    5: 128,
-    6: 128,
-    7: 256,
-    8: 256,
-    9: 256,
-    -1: 256,
-}
 
 
 class Model(nn.Module):
@@ -156,123 +134,6 @@ class Model(nn.Module):
         output = x.view(N, M, -1, t, v).permute(0, 2, 3, 4, 1)
 
         return output, feature
-
-
-class TruncatedModel(Model):
-    r"""Truncated STGCN which uses pretrained weights from the original model (recommended),
-    and return activations till a certain layer.
-
-    Args:
-        layer (int): The layer till which the activations are to be returned.
-
-    Shape:
-        - Input: :math:`(N, in_channels, T_{in}, V_{in}, M_{in})`
-        - Output: :math:`(N, num_class)` where
-            :math:`N` is a batch size,
-            :math:`T_{in}` is a length of input sequence,
-            :math:`V_{in}` is the number of graph nodes,
-            :math:`M_{in}` is the number of instance in a frame.
-    """
-
-    def __init__(self,
-                 layer=4,
-                 use_mlp=False,
-                 task="classification",
-                 freeze_encoder: bool = False,
-                 deepnet: bool = False):
-        '''
-        Args:
-        ----
-        layer: int
-            The layer till which the activations are to be returned.
-        use_mlp: bool
-            If True, uses a MLP head, else uses a Conv2d head.
-        task: str
-            The task to be performed. Either "classification" or "regression".
-        freeze_encoder: bool
-            If True, freezes the encoder (pretrained STGCN) weights.
-        deepnet: bool
-            If True, uses a deep network for the head.
-        '''
-
-        super().__init__(
-            in_channels=3,
-            num_class=400,
-            graph_args={
-                "layout": "openpose",
-                "strategy": "spatial"
-            },
-            edge_importance_weighting=False if freeze_encoder else True,
-            return_hidden_states=True,
-        )
-        self.layer = layer
-
-        # Freeze the encoder
-        if freeze_encoder:
-            self.st_gcn_networks.requires_grad_(False)
-            self.fcn.requires_grad_(False)
-
-        # freeze unused parts of the encoder
-        for i, net in enumerate(self.st_gcn_networks):
-            if (i+1 > layer) and (layer != -1):
-                net.requires_grad_(False)
-        
-        # -1 => full encoder + FCN
-        if layer != -1:
-            self.fcn.requires_grad_(False)
-
-        # Define the head
-        if task == "classification":
-            num_class = 2
-        elif task == "regression":
-            num_class = 1
-        else:
-            raise NotImplementedError
-
-        # deepnet is just a bigger head
-        if not deepnet:
-            if use_mlp:
-                self.head = nn.Linear(LAYER2DIM[layer], num_class)
-            else:
-                self.head = nn.Conv2d(LAYER2DIM[layer],
-                                      num_class,
-                                      kernel_size=1)
-        else:
-            if use_mlp:
-                self.head = nn.Sequential(nn.Linear(LAYER2DIM[layer], 512),
-                                          nn.Flatten(), 
-                                          nn.BatchNorm1d(512),
-                                          nn.ReLU(), 
-                                          nn.Linear(512, 128),
-                                          nn.BatchNorm1d(512), 
-                                          nn.ReLU(),
-                                          nn.Linear(128, num_class))
-            else:
-                self.head = nn.Sequential(
-                    nn.Conv2d(LAYER2DIM[layer], 512, kernel_size=1),
-                    nn.Flatten(), 
-                    nn.BatchNorm1d(512), 
-                    nn.ReLU(),
-                    nn.Linear(512, 128), 
-                    nn.BatchNorm1d(128), 
-                    nn.ReLU(),
-                    nn.Linear(128, num_class))
-
-    def forward(self, x: torch.Tensor):
-
-        # Forward pass on the STGCN
-        x, hidden_states = super().forward(x)
-
-        # Extract features from the desired layer
-        if isinstance(self.layer, int):
-            features = custom_pool_2d(hidden_states[self.layer], x.size(0), 1)
-        else:
-            features = x.flatten(1)
-
-        preds = self.head(features)
-        preds = preds.view(x.size(0), -1)  # Flatten the output
-
-        return preds
 
 
 class st_gcn(nn.Module):

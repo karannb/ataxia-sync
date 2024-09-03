@@ -21,7 +21,7 @@ def seedAll(seed: int):
     torch.manual_seed(seed)
 
     if torch.cuda.is_available():
-        torch.cuda.manual_seedAll(seed)
+        torch.cuda.manual_seed(seed)
 
     try:
         import numpy as np
