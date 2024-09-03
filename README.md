@@ -14,7 +14,9 @@ This will create the folder withh all the files and extracted Gait Cycles (overl
 Done!
 
 ## Model checkpoints
-Create a folder called `ckpts/` and store the STGCN checkpoints following instructions [here](https://github.com/yysijie/st-gcn/blob/master/OLD_README.md).
+Create a folder called `ckpts/`,
+- store the STGCN checkpoints following instructions [here](https://github.com/yysijie/st-gcn/blob/master/OLD_README.md).
+- store the GaitGraph checkpoints following instructions [here](https://github.com/tteepe/GaitGraph).
 
 
 ## Training

@@ -1,11 +1,13 @@
 '''
-This file holds the code for plotting the results of the experiments.
+This file holds the code for plotting and analyzing the results of the experiments.
 '''
 import sys
 sys.path.append("./")
 
+import os
 import torch
 import numpy as np
+import pandas as pd
 from torch import nn
 from tqdm import tqdm
 
@@ -101,7 +103,45 @@ def plotResults(model: nn.Module, ckpt: str):
     return
 
 
+def getMetricStdandMean(base_results_path: str, layer: int = 6, 
+                        task: str = "classification") -> Tuple[float, float]:
+    """
+    Function to get the mean and standard deviation of the metrics from the base_ckpt_path.
+
+    Args:
+        base_ckpt_path (str): The base path to the checkpoints.
+        layer (int, optional): The layer to get the metrics for. Defaults to 6.
+        task (str, optional): The task to get the metrics for. Defaults to "classification".
+
+    Returns:
+        None, just prints the mean and standard deviation of the metrics.
+    """
+    if task == "classification":
+        metrics = {"Test Accuracy": [], "Test F1": [], "Test AUC": []}
+    else:
+        metrics = {"Test MAE": [], "Test MSE": [], "Test Pearson": []}
+    # add results/ if not in base_results_path
+    if "results/" not in base_results_path:
+        base_ckpt_path = f"results/{base_results_path}"
+
+    # now iterate over each directory in the base_results_path
+    # and get the 10-fold metrics for that run
+    for folder in os.listdir(base_ckpt_path):
+        if (f"layer_{layer}" not in folder) or (task not in folder):
+            continue
+        csv = pd.read_csv(f"{base_ckpt_path}/{folder}/results.csv")
+        for metric in metrics:
+            metrics[metric].append(csv[metric].values)
+        
+    for metric in metrics:
+        metrics[metric] = np.array(metrics[metric]).flatten()
+        mean = np.mean(metrics[metric])
+        std = np.std(metrics[metric])
+        print(f"{metric}: {mean} +/- {std}")
+    return
+
+
 if __name__ == '__main__':
-    model = TruncatedSTGCN(layer=6, task="regression")
-    ckpt = "results/fivesixseven_cls/task_regression_frozen_encoder_False_deepnet_False_shuffle_True_epochs_500_seed_42_lr_3e-05_bs_64_wd_0.0_folds_10_layer_6_mlp_False/fold_4/best_model.pth"
-    plotResults(model, ckpt)
+    # model = TruncatedSTGCN(layer=6, task="regression")
+    # ckpt = "results/fivesixseven_cls/task_regression_frozen_encoder_False_deepnet_False_shuffle_True_epochs_500_seed_42_lr_3e-05_bs_64_wd_0.0_folds_10_layer_6_mlp_False/fold_4/best_model.pth"
+    getMetricStdandMean("fivesixseven_cls", layer=6, task="regression")

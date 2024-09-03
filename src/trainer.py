@@ -361,14 +361,17 @@ def trainer():
 
         # Load data
         train_data = ATAXIADataset(train_split, train_args.task, 
-                                   csv_name=csv_name, model=model_args.model_type)
+                                   csv_name=csv_name, 
+                                   model=model_args.model_type)
         val_data = ATAXIADataset(val_split, train_args.task, 
-                                 csv_name=csv_name, model=model_args.model_type)
+                                 csv_name=csv_name, 
+                                 model=model_args.model_type)
 
         # create a test dataset if testing is enabled
         if train_args.do_test_split:
             test_data = ATAXIADataset(test_inds, train_args.task, 
-                                      csv_name=csv_name, model=model_args.model_type)
+                                      csv_name=csv_name, 
+                                      model=model_args.model_type)
 
         # print distribution of labels in the test set.
         if train_args.do_test_split:
@@ -399,7 +402,7 @@ def trainer():
                                     model_args.freeze_encoder)
             if model_args.ckpt_path != 'None':
                 state_dict = torch.load(model_args.ckpt_path)
-                model.load_state_dict(state_dict, strict=False)
+                model.load_state_dict(state_dict)
 
         # print the number of trainable parameters
         to_print = f"Number of trainable parameters : {sum(p.numel() for p in model.parameters() if p.requires_grad)/1e6:.3f}M\n"

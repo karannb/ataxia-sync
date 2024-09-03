@@ -8,7 +8,7 @@
 #SBATCH --error=logs/err_%j.log
 #SBATCH --time=1-00:00:00
 
-python3 stc/trainer.py \
+python3 src/trainer.py \
     --log_every 25 \
     --batch_size 64 \
     --epochs 500 \
@@ -19,14 +19,16 @@ python3 stc/trainer.py \
     --save_every 100 \
     --patience 20 \
     --seed 40 \
+    --model_type stgcn \
     --layer_num 6 \
     --task regression \
     --log_dir results \
-    --ckpt_path ckpts/st_gcn.kinetics.pt \
+    --ckpt_path ckpts/st_gcn.kinetics.pt
 
 # additional args - 
 # --with_tracking
 # --use_mlp
+# --model_type stgcn OR resgcn
 # --task classification OR --task regression
 # --no_shuffle
 # --deepnet
