@@ -110,13 +110,16 @@ class TruncatedSTGCN(Model):
         else:
             raise NotImplementedError
 
-        # deepnet is just a bigger head
-        if use_mlp:
-            self.head = nn.Linear(LAYER2DIM["stgcn"][layer], num_class)
-        else:
-            self.head = nn.Conv2d(LAYER2DIM["stgcn"][layer],
-                                    num_class,
-                                    kernel_size=1)
+        # Define the head
+        try: 
+            if use_mlp:
+                self.head = nn.Linear(LAYER2DIM["stgcn"][layer], num_class)
+            else:
+                self.head = nn.Conv2d(LAYER2DIM["stgcn"][layer],
+                                        num_class,
+                                        kernel_size=1)
+        except KeyError:
+            raise ValueError(f"Invalid layer: {layer}")
 
     def forward(self, x: torch.Tensor):
 
@@ -186,12 +189,15 @@ class TruncatedResGCN(ResGCN):
         self.pooler = nn.AdaptiveAvgPool2d(1)
 
         # define a head
-        if task == "classification":
-            self.head = nn.Linear(LAYER2DIM["resgcn"][layer], 2)
-        elif task == "regression":
-            self.head = nn.Linear(LAYER2DIM["resgcn"][layer], 1)
-        else:
-            raise NotImplementedError
+        try:
+            if task == "classification":
+                self.head = nn.Linear(LAYER2DIM["resgcn"][layer], 2)
+            elif task == "regression":
+                self.head = nn.Linear(LAYER2DIM["resgcn"][layer], 1)
+            else:
+                raise NotImplementedError
+        except KeyError:
+            raise ValueError(f"Invalid layer: {layer}")
 
     def forward(self, x: torch.Tensor):
 

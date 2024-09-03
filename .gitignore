@@ -1,8 +1,8 @@
 # user defined
 *temp*
+slurm_logs/
 ckpts/
 data/
-plots/
 wandb/
 results/
 __pycache__/

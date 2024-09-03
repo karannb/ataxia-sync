@@ -402,7 +402,7 @@ def trainer():
                                     model_args.freeze_encoder)
             if model_args.ckpt_path != 'None':
                 state_dict = torch.load(model_args.ckpt_path)
-                model.load_state_dict(state_dict)
+                model.load_state_dict(state_dict, strict=False) # same, our model has a prediction head
 
         # print the number of trainable parameters
         to_print = f"Number of trainable parameters : {sum(p.numel() for p in model.parameters() if p.requires_grad)/1e6:.3f}M\n"
