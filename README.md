@@ -14,12 +14,16 @@ This will create the folder withh all the files and extracted Gait Cycles (overl
 Done!
 
 ## Model checkpoints
-Create a folder called `ckpts/`, we have already uploaded the required checkpoints.
+Inside a folder called `ckpts/`, we have already uploaded the required checkpoints. (You can download checkpints and store them there)
 - STGCN checkpoints : [here](https://github.com/yysijie/st-gcn/blob/master/OLD_README.md).
 - GaitGraph checkpoints : [here](https://github.com/tteepe/GaitGraph).
 
 
 ## Training
+First we need the dependencies
+```bash
+pip install -r requirements.txt
+```
 To train a model you can use the `runner.sh` with `sbatch` on an HPC or with `bash` on your local machine.
 ```bash
 bash runner.sh
