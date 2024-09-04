@@ -4,6 +4,7 @@ This file holds the code for plotting and analyzing the results of the experimen
 import sys
 sys.path.append("./")
 
+import re
 import os
 import torch
 import numpy as np
@@ -11,12 +12,13 @@ import pandas as pd
 from torch import nn
 from tqdm import tqdm
 
+from typing import Tuple, List
 from matplotlib.lines import Line2D
 from matplotlib import pyplot as plt
 from src.dataset import ATAXIADataset
-from models.atgcn import TruncatedSTGCN
+from matplotlib.ticker import MaxNLocator
 from sklearn.metrics import ConfusionMatrixDisplay
-from typing import Tuple, List
+from models.atgcn import TruncatedSTGCN, TruncatedResGCN
 
 @torch.no_grad()
 def getPredsAndTargets(model, loader, device) -> Tuple[List, List]:
@@ -57,7 +59,7 @@ def plotResults(model: nn.Module, ckpt: str):
     """
 
     # Load the checkpoint
-    checkpoint = torch.load(ckpt)
+    checkpoint = torch.load(ckpt, map_location='cpu')
     model.load_state_dict(checkpoint['model'])
 
     # get data (377 is dataset size, so we use all the data)
@@ -81,8 +83,8 @@ def plotResults(model: nn.Module, ckpt: str):
     plt.scatter(one_labels, range(len(one_labels)), c=label2color[1], label='Label 1')
     plt.scatter(two_labels, range(len(two_labels)), c=label2color[2], label='Label 2')
     plt.scatter(three_labels, range(len(three_labels)), c=label2color[3], label='Label 3')
-    plt.xlabel("Predictions")
-    plt.ylabel("Number of Points in Class")
+    plt.xlabel("SARA severity score")
+    plt.ylabel("Frequency")
     # Add a vertical line at every 0.5 for reference
     for i in range(1, 4):
         plt.axvline(x=i - 0.5, color="k", linestyle="--")
@@ -91,6 +93,7 @@ def plotResults(model: nn.Module, ckpt: str):
     plt.legend(handles=legend_elements, title="Labels", loc="upper right")
     # Adjust the layout
     plt.tight_layout()
+    plt.gca().xaxis.set_major_locator(MaxNLocator(integer=True))
     plt.savefig("data/scatter.png")
     plt.close('all')
 
@@ -109,7 +112,7 @@ def getMetricStdandMean(base_results_path: str, layer: int = 6,
     Function to get the mean and standard deviation of the metrics from the base_ckpt_path.
 
     Args:
-        base_ckpt_path (str): The base path to the checkpoints.
+        base_results_path (str): The base path to the checkpoints.
         layer (int, optional): The layer to get the metrics for. Defaults to 6.
         task (str, optional): The task to get the metrics for. Defaults to "classification".
 
@@ -122,14 +125,14 @@ def getMetricStdandMean(base_results_path: str, layer: int = 6,
         metrics = {"Test MAE": [], "Test MSE": [], "Test Pearson": []}
     # add results/ if not in base_results_path
     if "results/" not in base_results_path:
-        base_ckpt_path = f"results/{base_results_path}"
+        base_results_path = f"results/{base_results_path}"
 
     # now iterate over each directory in the base_results_path
     # and get the 10-fold metrics for that run
-    for folder in os.listdir(base_ckpt_path):
+    for folder in os.listdir(base_results_path):
         if (f"layer_{layer}" not in folder) or (task not in folder):
             continue
-        csv = pd.read_csv(f"{base_ckpt_path}/{folder}/results.csv")
+        csv = pd.read_csv(f"{base_results_path}/{folder}/results.csv")
         for metric in metrics:
             metrics[metric].append(csv[metric].values)
         
@@ -137,11 +140,105 @@ def getMetricStdandMean(base_results_path: str, layer: int = 6,
         metrics[metric] = np.array(metrics[metric]).flatten()
         mean = np.mean(metrics[metric])
         std = np.std(metrics[metric])
-        print(f"{metric}: {mean} +/- {std}")
+        if task == "classification":
+            print(f"{metric}: {mean*100:.2f} +/- {std*100:.2f}")
+        else:
+            print(f"{metric}: {mean:.4f} +/- {std:.4f}")
+
+    return
+
+
+def getParams(model_path: str):
+    """
+    Function to get the number of parameters in the model.
+    Head + Non-head.
+
+    Args:
+        model_path (str): The path to the model.
+
+    Returns:
+        None, just prints the number of parameters in the model.
+    """
+    # get layer number
+    match = re.search(r'layer_(\-?\d+)', model_path)
+    if match:
+        layer_num = match.group(1)
+        print(f"LAYER: {layer_num}")
+    else:
+        print("Layer number not found.")
+        return
+    # get task
+    match = re.search(r'task_([^_]+)', model_path)
+    if match:
+        task_name = match.group(1)
+    else:
+        print("Task not found.")
+        return
+    if not os.path.exists(model_path):
+        print("Model path not found.")
+        return
+    state_dict = torch.load(model_path, map_location='cpu')['model']
+    if "gaitgraph" in model_path:
+        model = TruncatedResGCN(layer=int(layer_num), task=task_name)
+    else:
+        model = TruncatedSTGCN(layer=int(layer_num), task=task_name)
+    head = 0
+    non_head = 0
+    for name, param in model.named_parameters():
+        # don't count non-trianable parameters
+        # because in my experiments, non-training parameters
+        # are never used, they are the layers of the model
+        # beyond the one we want to get the representation of
+        if not param.requires_grad:
+            continue
+        if "head" in name:
+            head += param.numel()
+        else:
+            non_head += param.numel()
+    print(f"Head: {head}")
+    print(f"Non-Head: {non_head/1e6:.3f}M")
+    print(f"Total: {(head + non_head)/1e6:.3f}M")
     return
 
 
 if __name__ == '__main__':
+    pass
     # model = TruncatedSTGCN(layer=6, task="regression")
     # ckpt = "results/fivesixseven_cls/task_regression_frozen_encoder_False_deepnet_False_shuffle_True_epochs_500_seed_42_lr_3e-05_bs_64_wd_0.0_folds_10_layer_6_mlp_False/fold_4/best_model.pth"
-    getMetricStdandMean("fivesixseven_cls", layer=6, task="regression")
+    # plotResults(model, ckpt)
+    # print("STGCN-5 on Regression:")
+    # getMetricStdandMean("fivesixseven_cls", layer=5, task="regression")
+    # print("*"*88)
+    # print("STGCN-6 on Regression:")
+    # getMetricStdandMean("fivesixseven_cls", layer=6, task="regression")
+    # print("*"*88)
+    # print("STGCN-7 on Regression:")
+    # getMetricStdandMean("fivesixseven_cls", layer=7, task="regression")
+    # print("*"*88)
+    # print("STGCN-5 on Classification:")
+    # getMetricStdandMean("fivesixseven_reg", layer=5, task="classification")
+    # print("*"*88)
+    # print("STGCN-6 on Classification:")
+    # getMetricStdandMean("fivesixseven_reg", layer=6, task="classification")
+    # print("*"*88)
+    # print("STGCN-7 on Classification:")
+    # getMetricStdandMean("fivesixseven_reg", layer=7, task="classification")
+    # print("STGCN Params from ablation on regression:")
+    # for i in range(-1, 10):
+    #     getParams(f"results/ablation/task_regression_frozen_encoder_False_deepnet_False_shuffle_True_epochs_500_seed_50_lr_3e-05_bs_64_wd_0.0_folds_10_layer_{i}_mlp_False/fold_0/best_model.pth")
+    # print("*"*88)
+    # print("STGCN Params on classification:")
+    # for i in range(5, 8):
+    #     getParams(f"results/fivesixseven_reg/task_classification_frozen_encoder_False_deepnet_False_shuffle_True_epochs_500_seed_40_lr_3e-05_bs_64_wd_0.0_folds_10_layer_{i}_mlp_False/fold_0/best_model.pth")
+    # print("*"*88)
+    # print("GaitGraph on Classification:")
+    # getMetricStdandMean("results/gaitgraph", task="classification", layer=-1)
+    # print("*"*88)
+    # print("GaitGraph on Regression:")
+    # getMetricStdandMean("results/gaitgraph", task="regression", layer=-1)
+    # print("*"*88)
+    # print("GaitGraph Classification Params:")
+    # getParams("results/gaitgraph/task_classification_frozen_encoder_False_shuffle_True_epochs_500_seed_40_lr_3e-05_bs_64_wd_0.0_folds_10_layer_-1_mlp_False/fold_0/best_model.pth")
+    # print("*"*88)
+    # print("GaitGraph Regression Params:")
+    # getParams("results/gaitgraph/task_regression_frozen_encoder_False_shuffle_True_epochs_500_seed_40_lr_3e-05_bs_64_wd_0.0_folds_10_layer_-1_mlp_False/fold_0/best_model.pth")

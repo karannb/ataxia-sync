@@ -116,8 +116,8 @@ class TruncatedSTGCN(Model):
                 self.head = nn.Linear(LAYER2DIM["stgcn"][layer], num_class)
             else:
                 self.head = nn.Conv2d(LAYER2DIM["stgcn"][layer],
-                                        num_class,
-                                        kernel_size=1)
+                                      num_class,
+                                      kernel_size=1)
         except KeyError:
             raise ValueError(f"Invalid layer: {layer}")
 

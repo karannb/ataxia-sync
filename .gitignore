@@ -1,7 +1,6 @@
 # user defined
 *temp*
 slurm_logs/
-ckpts/
 data/
 wandb/
 results/
