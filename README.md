@@ -2,7 +2,7 @@
 Spatio Temporal GCN for Ataxia Detection.
 
 ## Data Preparation
-To make our pipeline fuly reproducible, we provide all the code used and also instructions on how to run it. Also if you want to use your own dataset, you can follow the instructions below.
+To make our pipeline fuly reproducible, we provide all the code used and also instructions on how to run it. Please download the data from [here](https://github.com/ROC-HCI/Automated-Ataxia-Gait); if you want to use your own dataset, you can follow the instructions below.
 
 1. First create a folder named `data/` in the root directory of the project.
 2. Use the `FRCNN_OpenPose_SORT.ipynb` from the `preprocess/` directory on Google Colab to get keypoints of the patient, store these inside the `data/` directory in a folder named `final_keypoints/`. (Note: this step takes **~4 hours** for the 149 videos we had)
@@ -14,9 +14,9 @@ This will create the folder withh all the files and extracted Gait Cycles (overl
 Done!
 
 ## Model checkpoints
-Create a folder called `ckpts/`,
-- store the STGCN checkpoints following instructions [here](https://github.com/yysijie/st-gcn/blob/master/OLD_README.md).
-- store the GaitGraph checkpoints following instructions [here](https://github.com/tteepe/GaitGraph).
+Create a folder called `ckpts/`, we have already uploaded the required checkpoints.
+- STGCN checkpoints : [here](https://github.com/yysijie/st-gcn/blob/master/OLD_README.md).
+- GaitGraph checkpoints : [here](https://github.com/tteepe/GaitGraph).
 
 
 ## Training
