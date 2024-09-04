@@ -30,6 +30,6 @@ bash runner.sh
 ```
 You can also check the flags using 
 ```python
-python main.py --help # or -h
+python src/trainer.py --help # or -h
 ```
 To reproduce our results, you can run the `runner.sh` as is. A full 10-fold CV run took about **40 minutes** on a single V100 GPU.
