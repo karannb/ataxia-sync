@@ -2,16 +2,14 @@
 Spatio Temporal GCN for Ataxia Detection.
 
 ## Data Preparation
-To make our pipeline fuly reproducible, we provide all the code used and also instructions on how to run it. Please download the data from [here](https://github.com/ROC-HCI/Automated-Ataxia-Gait); if you want to use your own dataset, you can follow the instructions below.
+To make our pipeline fuly reproducible, we provide all the code used and also instructions on how to run it. Please download the dataset we have used from [here](https://github.com/ROC-HCI/Automated-Ataxia-Gait); if you want to use your own dataset, the same instructions as below follow.
 
 1. First create a folder named `data/` in the root directory of the project.
 2. Use the `FRCNN_OpenPose_SORT.ipynb` from the `preprocess/` directory on Google Colab to get keypoints of the patient, store these inside the `data/` directory in a folder named `final_keypoints/`. (Note: this step takes **~4 hours** for the 149 videos we had)
-3. Using these keypoints we can now extract overlapping as well as non-overlapping gait cycles. To do this, run the `gait_extractor.py` script from the `preprocess/` directory. This will create a folder named `gait_cycles/` inside the `data/` directory. (or `non_overlapping_gait_cycles/` if you want to extract non-overlapping gait cycles, we use non-overlapping gait-cycles in the paper and have not tested the overlapping case)
+3. Using these keypoints we can now extract non-overlapping gait cycles. To do this, run the `gait_extractor.py` script from the `preprocess/` directory. This will create a folder named `non_overlapping_gait_cycles/` inside the `data/` directory. (or `gait_cycles/` if you want to extract overlapping gait cycles, we use non-overlapping gait-cycles in the paper and have not tested the overlapping case)
 4. Finally, we create CSV files from which we can quickly retrieve data and use it in our training loop, you can use `create_csvs.py` from the `preprocess/` directory to create these CSV files, in our format.
 
-This will create the folder withh all the files and extracted Gait Cycles (overlapping and non-overlapping, both).
-
-Done!
+This will create the folder with all the files and extracted Gait Cycles (overlapping and non-overlapping, both).
 
 ## Model checkpoints
 Inside a folder called `ckpts/`, we have already uploaded the required checkpoints. (You can download checkpints and store them there)
@@ -20,9 +18,13 @@ Inside a folder called `ckpts/`, we have already uploaded the required checkpoin
 
 
 ## Training
-First we need the dependencies
+First we need to install the dependencies (We have used python 3.9.19)
 ```bash
 pip install -r requirements.txt
+```
+OR if you use conda, then first run
+```bash
+conda create -n ataxia-sync python=3.9.19
 ```
 To train a model you can use the `runner.sh` with `sbatch` on an HPC or with `bash` on your local machine.
 ```bash
@@ -32,4 +34,4 @@ You can also check the flags using
 ```python
 python src/trainer.py --help # or -h
 ```
-To reproduce our results, you can run the `runner.sh` as is. A full 10-fold CV run took about **40 minutes** on a single V100 GPU.
+To reproduce our results, you can run the `runner.sh` as is. A full 10-fold CV run takes about **40 minutes** on a single V100 GPU.
