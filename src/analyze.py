@@ -79,18 +79,18 @@ def plotResults(model: nn.Module, ckpt: str):
     two_labels = [preds[i] for i in range(len(targets)) if targets[i] == 2]
     three_labels = [preds[i] for i in range(len(targets)) if targets[i] == 3]
     # Plot each class separately with adjusted y-values
-    plt.scatter(zero_labels, range(len(zero_labels)), c=label2color[0], label='Label 0')
-    plt.scatter(one_labels, range(len(one_labels)), c=label2color[1], label='Label 1')
-    plt.scatter(two_labels, range(len(two_labels)), c=label2color[2], label='Label 2')
-    plt.scatter(three_labels, range(len(three_labels)), c=label2color[3], label='Label 3')
-    plt.xlabel("SARA severity score")
+    plt.scatter(zero_labels, range(len(zero_labels)), c=label2color[0], label='SARA Score 0')
+    plt.scatter(one_labels, range(len(one_labels)), c=label2color[1], label='SARA Score 1')
+    plt.scatter(two_labels, range(len(two_labels)), c=label2color[2], label='SARA Score 2')
+    plt.scatter(three_labels, range(len(three_labels)), c=label2color[3], label='SARA Score 3')
+    plt.xlabel("Predicted SARA severity score")
     plt.ylabel("Frequency")
     # Add a vertical line at every 0.5 for reference
     for i in range(1, 4):
         plt.axvline(x=i - 0.5, color="k", linestyle="--")
     # Create a legend and place it inside the plot at the top-right corner
-    legend_elements = [Line2D([0], [0], marker='o', color='w', markerfacecolor=label2color[i], markersize=10, label=f'Label {i}') for i in label2color]
-    plt.legend(handles=legend_elements, title="Labels", loc="upper right")
+    legend_elements = [Line2D([0], [0], marker='o', color='w', markerfacecolor=label2color[i], markersize=10, label=f'SARA Score {i}') for i in label2color]
+    plt.legend(handles=legend_elements, title="Ground Truth", loc="upper right")
     # Adjust the layout
     plt.tight_layout()
     plt.gca().xaxis.set_major_locator(MaxNLocator(integer=True))
