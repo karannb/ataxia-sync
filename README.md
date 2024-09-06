@@ -35,3 +35,11 @@ You can also check the flags using
 python src/trainer.py --help # or -h
 ```
 To reproduce our results, you can run the `runner.sh` as is. A full 10-fold CV run takes about **40 minutes** on a single V100 GPU.
+
+## Analysis
+You can also reproduce all the plots and tables in the paper using `src/analyze.py`, just uncomment all the lines after `if __name__ == "__main__"`, and run,
+```bash
+python3 src/analyze.py
+```
+
+Please create an issue if you need some functionality or the code doesn't work as intended. Thank you!
