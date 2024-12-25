@@ -15,7 +15,6 @@ class ATAXIADataset(Dataset):
                  csv_name="all_gait",
                  model="stgcn"):
         """
-
         Args:
             inds (_type_, optional): The indices of the data to be used. Defaults to None.
             task (str, optional): The task to be performed. (classification or regression) Defaults to "classification".
@@ -121,12 +120,3 @@ class ATAXIADataset(Dataset):
             raise NotImplementedError
 
         return
-
-
-if __name__ == '__main__':
-    data = pd.read_csv("data/all_gait.csv", index_col=None)
-    print(data.iloc[904])
-    data = data.iloc[:867]
-    print(data.iloc[-1])
-    dataset = ATAXIADataset(range(len(data)))
-    print(dataset[:5][0].shape)

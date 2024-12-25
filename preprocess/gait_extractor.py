@@ -1,3 +1,12 @@
+"""
+This module plots and extracts gait cycles from the keypoint data.
+The pipeline is:
+1. `diffInKeypoints` computes the difference between the left and right keypoints
+    using the L2-norm, then applies `movingAverageFilter` and a Savgol filter.
+2. `findPeaks` finds the peaks in the difference using `find_peaks` from `scipy.signal`.
+3. `storeGAITCycles` stores the gait cycles in a numpy array.
+"""
+
 import os
 import numpy as np
 from typing import List, Tuple
@@ -28,7 +37,7 @@ def movingAverageFilter(data, N) -> List:
     return filtered_data
 
 
-def calcDiff(video: int, keypoints: tuple = (11, 14)) -> List:
+def diffInKeypoints(video: int, keypoints: tuple = (11, 14)) -> List:
     """
     Plots the difference between the left and right keypoints for the foot.
     Helps w/ detecting gait cycles.
@@ -49,11 +58,11 @@ def calcDiff(video: int, keypoints: tuple = (11, 14)) -> List:
 
     for i in range(len(left_keypoints)):
         plot_list.append(np.linalg.norm(left_keypoints[i] -
-                                        right_keypoints[i]))  #
-
-    plot_list = movingAverageFilter(plot_list, 11)
+                                        right_keypoints[i]))
 
     window = 11
+    plot_list = movingAverageFilter(plot_list, window)
+
     plot_list = savgol_filter(plot_list, window, 4)
 
     return plot_list
@@ -61,10 +70,10 @@ def calcDiff(video: int, keypoints: tuple = (11, 14)) -> List:
 
 def plotDiff(plot_list: list, peaks: list, video: int):
     """
-    Plots the moving average computed using `calcDiff` and marks the peaks.
+    Plots the moving average computed using `diffInKeypoints` and marks the peaks.
 
     Args:
-        plot_list (list): output of `calcDiff`
+        plot_list (list): output of `diffInKeypoints`
         peaks (list): list of peaks
         video (int): video number (used to save the plot)
     """
@@ -81,7 +90,7 @@ def plotDiff(plot_list: list, peaks: list, video: int):
 
 def findPeaks(video: int) -> List:
     """
-    Find the peaks in the `calcDiff` output,
+    Find the peaks in the `diffInKeypoints` output,
     also plots the whole graph with the peaks marked.
 
     Args:
@@ -90,7 +99,7 @@ def findPeaks(video: int) -> List:
     Returns:
         peaks (list): list of peaks
     """
-    plot_list = calcDiff(video)
+    plot_list = diffInKeypoints(video)
 
     peaks, _ = find_peaks(plot_list, distance=15)
 
@@ -110,7 +119,7 @@ def storeGAITCycles(video: int, peaks: list, non_overlapping: bool = False) -> T
     Args:
         video (int): video number
         peaks (list): list of peaks
-        non_overlapping (bool, optional): _description_. Defaults to False.
+        non_overlapping (bool, optional): whether or not to use overlapping GAIT cycles. Defaults to False.
 
     Returns:
         gait_lengths (list): lengths of the gait cycles
@@ -129,7 +138,7 @@ def storeGAITCycles(video: int, peaks: list, non_overlapping: bool = False) -> T
         add2i = 1
         if end - begin < 30:  # too short to capture a complete gait cycle
             pass
-        elif end - begin > 75:  # Most such gait cycles have captured multiple gait cycles
+        elif end - begin > 75:  # such gait cycles have captured multiple gait cycles
             middle = (begin + end) // 2
             gait_cycles.append(video_keypoints[begin:middle])
             gait_cycles.append(video_keypoints[middle:end])
@@ -142,7 +151,7 @@ def storeGAITCycles(video: int, peaks: list, non_overlapping: bool = False) -> T
             gait_lengths.append(end - begin)
             if non_overlapping:
                 add2i = 3
-        i += add2i  # for the overlapping case, this is a simple while loop.
+        i += add2i  # for the overlapping case, this is a simple while loop (because we always add 1)
 
     directory = f"data/non_overlapping_gait_cycles" if non_overlapping else f"data/gait_cycles"
 
@@ -154,7 +163,7 @@ def storeGAITCycles(video: int, peaks: list, non_overlapping: bool = False) -> T
     return gait_lengths, len(gait_cycles)
 
 
-if __name__ == "__main__":
+def main():
     peak_lengths = []
     ovr_gait_lengths = []
     gaits = []
@@ -185,3 +194,7 @@ if __name__ == "__main__":
     print(f"Minimum length of gait cycle: {min(ovr_gait_lengths)} at {ovr_gait_lengths.index(min(ovr_gait_lengths))}")
     print(f"Average length of gait cycle: {sum(ovr_gait_lengths) / len(ovr_gait_lengths)}")
     print(f"Maximum length of gait cycle: {max(ovr_gait_lengths)} at {ovr_gait_lengths.index(max(ovr_gait_lengths))}")
+
+
+if __name__ == "__main__":
+    main()

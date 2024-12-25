@@ -51,6 +51,18 @@ class Graph():
                              (0, 1), (15, 0), (14, 0), (17, 15), (16, 14)]
             self.edge = self_link + neighbor_link
             self.center = 1
+        elif layout == 'datasetV2':
+            # LeftShoulder:0, RightShoulder:1, LeftElbow:2, RightElbow:3,
+            # LeftWrist:4, RightWrist:5, LeftHip:6, RightHip:7,
+            # LeftKnee:8, RightKnee:9, LeftAnkle:10, RightAnkle:11
+            # Chest:12
+            self.num_node = 13
+            self_link = [(i, i) for i in range(self.num_node)]
+            neighbor_link = [(0, 2), (2, 4), (6, 8), (8, 10),
+                             (1, 3), (3, 5), (7, 9), (9, 11),
+                             (0, 12), (1, 12), (6, 12), (7, 12)]
+            self.edge = self_link + neighbor_link
+            self.center = 12
         elif layout == 'resgcn':
             # from https://github.com/tteepe/GaitGraph/blob/e7a3995ad7253809ad7981ba2ff30c39961a6d1a/src/datasets/graph.py#L111
             # note when using resgcn the dataset will also permute / drop some joints to match the ordering required
