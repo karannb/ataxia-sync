@@ -3,7 +3,6 @@ A lightweight Spatiotemporal GCN for Ataxia Detection.
 ![AtGCN](assets/atgcn.png)
 
 To make our pipeline fuly reproducible, we provide all the code used and also instructions on how to run it.
-![Results](assets/results.png)
 
 ## Data Preparation - V1
 Please download the first dataset we have used from [here](https://github.com/ROC-HCI/Automated-Ataxia-Gait); if you want to use your own dataset, the same instructions as below follow.
@@ -19,7 +18,7 @@ python preprocess/gait_extractor.py 1
 This will create the folder with all the files and extracted Gait Cycles (overlapping and non-overlapping, both).
 
 ## Data Preparation - V2
-We have another dataset of 40 videos, which can be downloaded from [here](https://data.mendeley.com/datasets/2vkk2r9tx3/1). This already has extracted keypoints. **NOTE:** according to current preprocessing, you can only use one dataset at a time, as the CSV files are overwritten. To switch between datasets, just rename the folders accordingly.
+We have another dataset of 40 videos, which can be downloaded from [here](https://data.mendeley.com/datasets/2vkk2r9tx3/1) / [paper](https://hisham246.github.io/uploads/iecbes2022khalil.pdf). This already has extracted keypoints. **NOTE:** according to current preprocessing, you can only use one dataset at a time, as the CSV files are overwritten. To switch between datasets, just rename the folders accordingly.
 
 1. Use the `process_v2.py` from the `preprocess/` directory, which will store the keypoints in .npy files, we also add a center coordinate to the keypoints.
 2. Then use the `gait_extractor.py` to extract non-overlapping gait cycles (will be saved similarly to the first dataset). Run with 
@@ -59,5 +58,20 @@ You can also reproduce all the plots and tables in the paper using `src/analyze.
 ```bash
 python3 src/analyze.py
 ```
+### Main results
+![Results](assets/results.png)
 
 Please create an issue if you need some functionality or the code doesn't work as intended. Thank you!
+
+## Citation
+```bibtex
+@misc{bania2024atgcngraphconvolutionalnetwork,
+      title={AtGCN: A Graph Convolutional Network For Ataxic Gait Detection}, 
+      author={Karan Bania and Tanmay Verlekar},
+      year={2024},
+      eprint={2410.22862},
+      archivePrefix={arXiv},
+      primaryClass={cs.CV},
+      url={https://arxiv.org/abs/2410.22862}, 
+}
+```

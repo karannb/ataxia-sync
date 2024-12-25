@@ -58,9 +58,9 @@ class Graph():
             # Chest:12
             self.num_node = 13
             self_link = [(i, i) for i in range(self.num_node)]
-            neighbor_link = [(0, 2), (2, 4), (6, 8), (8, 10),
-                             (1, 3), (3, 5), (7, 9), (9, 11),
-                             (0, 12), (1, 12), (6, 12), (7, 12)]
+            neighbor_link = [(0, 2), (2, 4), (0, 6), (6, 8), (8, 10),
+                             (1, 3), (3, 5), (1, 7), (7, 9), (9, 11),
+                             (0, 1), (6, 7)]
             self.edge = self_link + neighbor_link
             self.center = 12
         elif layout == 'resgcn':

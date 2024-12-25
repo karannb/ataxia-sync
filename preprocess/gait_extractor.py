@@ -57,7 +57,7 @@ def diffInKeypoints(fname: str, keypoints: tuple = (11, 14)) -> List:
     left, right = keypoints
     plot_list = []
 
-    video_keypoints = np.load(fname)
+    video_keypoints = np.load(fname)[:1000]
     left_keypoints = video_keypoints[:, left, :2]
     right_keypoints = video_keypoints[:, right, :2]
 
@@ -84,6 +84,7 @@ def plotDiff(plot_list: list, peaks: list, identifier: int, dataset_ver: int = 1
         dataset_ver (int, optional): version of the dataset. Defaults to 1.
     """
 
+    plt.figure(figsize=(20, 6))  # Set the figure size (width, height) in inches
     plt.plot(plot_list)
     for peak in peaks:
         plt.plot(peak, plot_list[peak], 'ro')
@@ -114,7 +115,8 @@ def findPeaks(identifier: int, dataset_ver: int = 1) -> List:
         plot_list = diffInKeypoints(f"data/V2/keypoints/{identifier}.npy", keypoints=(8, 9))
 
     # find peaks
-    peaks, _ = find_peaks(plot_list, distance=15)
+    distance = 15 if dataset_ver == 1 else 30
+    peaks, _ = find_peaks(plot_list, distance=distance)
 
     return peaks, plot_list
 
