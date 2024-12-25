@@ -1,8 +1,11 @@
 # AtGCN
-A lightweight Spatiotemporal GCN for Ataxia Detection.
 ![AtGCN](assets/atgcn.png)
 
-To make our pipeline fuly reproducible, we provide all the code used and also instructions on how to run it.
+A lightweight Spatiotemporal GCN for Ataxia Detection.
+
+[![arXiv](https://img.shields.io/badge/arXiv-2410.22862-b31b1b.svg)](https://arxiv.org/abs/2410.22862)
+
+To make our pipeline fuly reproducible, we provide all the code used and also instructions on how to reproduce.
 
 ## Data Preparation - V1
 Please download the first dataset we have used from [here](https://github.com/ROC-HCI/Automated-Ataxia-Gait); if you want to use your own dataset, the same instructions as below follow.
