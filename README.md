@@ -16,6 +16,19 @@ Please download the first dataset we have used from [here](https://github.com/RO
 ```bash
 python preprocess/gait_extractor.py 1
 ```
+This should print something like - 
+```bash
+Minimum number of peaks: xx at yy
+Average number of peaks: xy.z
+Maximum number of peaks: zz
+Minimum number of gait cycles: xx at yy
+Average number of gait cycles: xy.z
+Maximum number of gait cycles: zz
+Number of gait cycles: abc
+Minimum length of gait cycle: xx at yy
+Average length of gait cycle: xy.z
+Maximum length of gait cycle: zz
+```
 4. Finally, we create CSV files from which we can quickly retrieve data and use it in our training loop, you can use `create_csvs.py` from the `preprocess/` directory to create these CSV files, in our format.
 
 This will create the folder with all the files and extracted Gait Cycles (overlapping and non-overlapping, both).
@@ -23,12 +36,16 @@ This will create the folder with all the files and extracted Gait Cycles (overla
 ## Data Preparation - V2
 We have another dataset of 40 videos, which can be downloaded from [here](https://data.mendeley.com/datasets/2vkk2r9tx3/1) / [paper](https://hisham246.github.io/uploads/iecbes2022khalil.pdf). This already has extracted keypoints. **NOTE:** according to current preprocessing, you can only use one dataset at a time, as the CSV files are overwritten. To switch between datasets, just rename the folders accordingly.
 
-1. Use the `process_v2.py` from the `preprocess/` directory, which will store the keypoints in .npy files, we also add a center coordinate to the keypoints.
+1. Use the `create_npy.py` from the `preprocess/` directory, which will store the keypoints in .npy files, we also add a **center** coordinate to the keypoints (last keypoint).
 2. Then use the `gait_extractor.py` to extract non-overlapping gait cycles (will be saved similarly to the first dataset). Run with 
 ```bash
 python preprocess/gait_extractor.py 2
 ```
 3. Finally, create the CSV files using `create_csvs.py` from the `preprocess/` directory.
+
+A few notes on this dataset:
+- The dataset available online is the **augmented** version, we deaugment and use it in our case.
+- The authors report 31 augmentations + 1 original, however, their [implementation](https://github.com/hisham246/AtaxiaNet/tree/main) and the trend in the dataset observed by plotting shows original + 32 augmentations, so we divide the dataset by 33 and use the first \[x//33:\] frames per video.
 
 
 ## Model checkpoints

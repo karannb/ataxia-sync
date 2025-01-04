@@ -41,9 +41,15 @@ def csv2npy(fname: str):
     df["YCenter"] = (df["YRightShoulder"] + df["YLeftShoulder"]) / 2
     df["ZCenter"] = (df["ZRightShoulder"] + df["ZLeftShoulder"]) / 2
 
+    # this dataset has 33 copies of the original data + augmentations
+    # we only need the original data (the first x rows)
+    actual = df.shape[0] // 33
+    assert actual * 33 == df.shape[0], f"Expected a multiple of 33, got {df.shape[0]}"
+    df = df.iloc[:actual]
+
     # convert to numpy array
     arr = df.to_numpy()
-    assert arr.shape[1] == 39, f"Expected 36 columns, got {arr.shape[1]}"
+    assert arr.shape[1] == 39, f"Expected 39 columns, got {arr.shape[1]}"
 
     # reshape to make the last dimension 3
     arr = arr.reshape(-1, 13, 3)

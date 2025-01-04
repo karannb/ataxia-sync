@@ -42,7 +42,7 @@ def movingAverageFilter(data, N) -> List:
     return filtered_data
 
 
-def diffInKeypoints(fname: str, keypoints: tuple = (11, 14)) -> List:
+def diffInKeypoints(fname: str, keypoints: tuple = (11, 14), xy=True) -> List:
     """
     Plots the difference between the left and right keypoints for the foot.
     Helps w/ detecting gait cycles.
@@ -50,44 +50,49 @@ def diffInKeypoints(fname: str, keypoints: tuple = (11, 14)) -> List:
     Args:
         fname (str): filename of the video
         keypoints (tuple, optional): tuple containing the keypoint locations of the left and right foot. Defaults to (11, 14).
+        xy (bool, optional): whether the dataset has (x, y, conf) values. Defaults to True.
 
     Returns:
-        plot_list: list of differences
+        diffs: list of differences
     """
     left, right = keypoints
-    plot_list = []
+    diffs = []
 
-    video_keypoints = np.load(fname)[:1000]
-    left_keypoints = video_keypoints[:, left, :2]
-    right_keypoints = video_keypoints[:, right, :2]
+    video_keypoints = np.load(fname)
+    if xy:
+        left_keypoints = video_keypoints[:, left, :2]
+        right_keypoints = video_keypoints[:, right, :2]
+    else:
+        left_keypoints = video_keypoints[:, left]
+        right_keypoints = video_keypoints[:, right]
 
     for i in range(len(left_keypoints)):
-        plot_list.append(np.linalg.norm(left_keypoints[i] -
-                                        right_keypoints[i]))
+        diffs.append(np.linalg.norm(left_keypoints[i] -
+                                    right_keypoints[i]))
 
+    # Apply filters
     window = 11
-    plot_list = movingAverageFilter(plot_list, window)
+    diffs = movingAverageFilter(diffs, window)
+    diffs = savgol_filter(diffs, window, 4)
 
-    plot_list = savgol_filter(plot_list, window, 4)
-
-    return plot_list
+    return diffs
 
 
-def plotDiff(plot_list: list, peaks: list, identifier: int, dataset_ver: int = 1):
+def plotDiff(diffs: list, peaks: list, identifier: int, dataset_ver: int = 1):
     """
     Plots the moving average computed using `diffInKeypoints` and marks the peaks.
 
     Args:
-        plot_list (list): output of `diffInKeypoints`
+        diffs (list): output of `diffInKeypoints`
         peaks (list): list of peaks
         identifier (int): identifier number (used to save the plot)
         dataset_ver (int, optional): version of the dataset. Defaults to 1.
     """
 
     plt.figure(figsize=(20, 6))  # Set the figure size (width, height) in inches
-    plt.plot(plot_list)
+    plt.plot(diffs)
     for peak in peaks:
-        plt.plot(peak, plot_list[peak], 'ro')
+        plt.plot(peak, diffs[peak], 'ro')
     plt.title(f"Video {identifier}")
     plt.savefig(f"plots/dataset_{dataset_ver}/{identifier}.png")
     plt.close('all')
@@ -106,19 +111,21 @@ def findPeaks(identifier: int, dataset_ver: int = 1) -> List:
 
     Returns:
         peaks (list): list of peaks
-        plot_list: list of differences
+        diffs: list of differences
     """
     # different datasets have different keypoint saving formats
     if dataset_ver == 1:
-        plot_list = diffInKeypoints(f"data/final_keypoints/{identifier}/kypts.npy")
+        diffs = diffInKeypoints(f"data/final_keypoints/{identifier}/kypts.npy")
     else:
-        plot_list = diffInKeypoints(f"data/V2/keypoints/{identifier}.npy", keypoints=(8, 9))
+        diffs = diffInKeypoints(f"data/V2/keypoints/{identifier}.npy", 
+                                keypoints=(10, 11), 
+                                xy=False)
 
     # find peaks
     distance = 15 if dataset_ver == 1 else 30
-    peaks, _ = find_peaks(plot_list, distance=distance)
+    peaks, _ = find_peaks(diffs, distance=distance)
 
-    return peaks, plot_list
+    return peaks, diffs
 
 
 def storeGAITCycles(fname: str, peaks: list, non_overlapping: bool = False) -> Tuple[List, int]:
