@@ -80,7 +80,7 @@ class TruncatedSTGCN(Model):
             in_channels=3,
             num_class=400,
             graph_args={
-                "layout": "openpose",
+                "layout": "openpose" if kwargs.pop("dataset_ver", 1) == 1 else "datasetV2",
                 "strategy": "spatial"
             },
             edge_importance_weighting=False if freeze_encoder else True,

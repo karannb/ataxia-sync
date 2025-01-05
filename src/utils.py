@@ -72,10 +72,10 @@ def get10Folds(train_val_inds, shuffle: bool = True) -> Tuple[List[List[int]],
 
 
 def getTrainValTest(df: pd.DataFrame, task: str,
-                              do_test_split: bool = False, 
-                              shuffle: bool = True) -> Tuple[List[List[int]], 
-                                                             List[List[int]], 
-                                                             List[int]]:
+                    do_test_split: bool = False, 
+                    shuffle: bool = True) -> Tuple[List[List[int]], 
+                                                   List[List[int]], 
+                                                   List[int]]:
     """
     Splits the data into training, validation, and testing sets.
 
@@ -137,8 +137,6 @@ def pLog(to_print: str, logs: List[io.TextIOWrapper]):
         log.flush()
     print(to_print, end="")
 
-    return
-
 
 def evaluate(preds: np.ndarray, labels: np.ndarray,
              task: str) -> Tuple[float, float, float]:
@@ -173,10 +171,10 @@ def evaluate(preds: np.ndarray, labels: np.ndarray,
 
 
 def get_mean_and_std(csv_path: str, round_off=True):
-    '''
+    """
     Utility function to analyse the results from a directory,
     following our logging format.
-    '''
+    """
 
     csv = pd.read_csv(csv_path)
 
@@ -198,5 +196,3 @@ def get_mean_and_std(csv_path: str, round_off=True):
     new_df = pd.DataFrame({"Name": cols, "Mu": mus, "Sigma": sigmas})
 
     print(new_df)
-
-    return

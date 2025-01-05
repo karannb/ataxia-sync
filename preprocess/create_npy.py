@@ -95,7 +95,7 @@ def main():
 
     # save the csv
     df = pd.DataFrame.from_dict(dict2csv)
-    df = df.sample(frac=1).reset_index(drop=True)  # shuffle the dataframe
+    df = df.sort_values(by="idx") # shuffles the DataFrame
     df.to_csv("data/V2.csv", index=False)
 
 if __name__ == "__main__":
