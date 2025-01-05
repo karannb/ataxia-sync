@@ -34,9 +34,9 @@ Maximum length of gait cycle: zz
 This will create the folder with all the files and extracted Gait Cycles (overlapping and non-overlapping, both).
 
 ## Data Preparation - V2
-We have another dataset of 40 videos, which can be downloaded from [here](https://data.mendeley.com/datasets/2vkk2r9tx3/1) / [paper](https://hisham246.github.io/uploads/iecbes2022khalil.pdf). This already has extracted keypoints. **NOTE:** according to current preprocessing, you can only use one dataset at a time, as the CSV files are overwritten. To switch between datasets, just rename the folders accordingly.
+We have another dataset of 40 videos, which can be downloaded from [here](https://data.mendeley.com/datasets/2vkk2r9tx3/1) / [paper](https://hisham246.github.io/uploads/iecbes2022khalil.pdf). This already has extracted keypoints. **NOTE:** according to current preprocessing, you can only use one dataset at a time, as the CSV files and folders are overwritten. To switch between datasets, just rename the folders accordingly.
 
-1. Use the `create_npy.py` from the `preprocess/` directory, which will store the keypoints in .npy files, we also add a **center** coordinate to the keypoints (last keypoint).
+1. Use the `create_npy.py` from the `preprocess/` directory, which will store the keypoints in .npy files and create a V2.csv file which contains a mapping of original files to assigned IDs and their labels, we also add a **center** coordinate to the keypoints (last keypoint).
 2. Then use the `gait_extractor.py` to extract non-overlapping gait cycles (will be saved similarly to the first dataset). Run with 
 ```bash
 python preprocess/gait_extractor.py 2

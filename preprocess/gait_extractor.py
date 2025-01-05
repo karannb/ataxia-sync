@@ -19,7 +19,7 @@ from scipy.signal import savgol_filter, find_peaks
 PLOT=True
 
 
-def movingAverageFilter(data, N) -> List:
+def movingAverageFilter(data: np.ndarray, N: int) -> List:
     """
     Simple Moving average
 
@@ -42,7 +42,7 @@ def movingAverageFilter(data, N) -> List:
     return filtered_data
 
 
-def diffInKeypoints(fname: str, keypoints: tuple = (11, 14), xy=True) -> List:
+def diffInKeypoints(fname: str, keypoints: tuple = (11, 14), xy: bool =True) -> List:
     """
     Plots the difference between the left and right keypoints for the foot.
     Helps w/ detecting gait cycles.
@@ -97,8 +97,6 @@ def plotDiff(diffs: list, peaks: list, identifier: int, dataset_ver: int = 1):
     plt.savefig(f"plots/dataset_{dataset_ver}/{identifier}.png")
     plt.close('all')
 
-    return
-
 
 def findPeaks(identifier: int, dataset_ver: int = 1) -> List:
     """
@@ -128,7 +126,7 @@ def findPeaks(identifier: int, dataset_ver: int = 1) -> List:
     return peaks, diffs
 
 
-def storeGAITCycles(fname: str, peaks: list, non_overlapping: bool = False) -> Tuple[List, int]:
+def storeGAITCycles(dataset_ver: int, fname: str, peaks: list, non_overlapping: bool = True) -> Tuple[List, int]:
     """
     Store the gait cycles in a numpy array.
     3 peaks => one gait cycle; if we are storing
@@ -137,9 +135,10 @@ def storeGAITCycles(fname: str, peaks: list, non_overlapping: bool = False) -> T
     one overlapping with the first.
 
     Args:
+        dataset_ver (int): version of the dataset
         fname (str): filename of the video
         peaks (list): list of peaks
-        non_overlapping (bool, optional): whether or not to use overlapping GAIT cycles. Defaults to False.
+        non_overlapping (bool, optional): whether or not to use overlapping GAIT cycles. Defaults to True.
 
     Returns:
         gait_lengths (list): lengths of the gait cycles
@@ -151,14 +150,16 @@ def storeGAITCycles(fname: str, peaks: list, non_overlapping: bool = False) -> T
     i = 1
     while (i < len(peaks) - 1):
         # for i in range(1, len(peaks) - 1):
-        # Search from the first (because -1)
-        # and ignore the last (because +1)
+        # Search from the first (because -1: L154)
+        # and ignore the last (because +1: L155)
         begin = peaks[i - 1]
         end = peaks[i + 1]
+        min_length = 30 if dataset_ver == 1 else 0
+        max_length = 75 if dataset_ver == 1 else 120
         add2i = 1
-        if end - begin < 30:  # too short to capture a complete gait cycle
+        if end - begin < min_length:  # too short to capture a complete gait cycle
             pass
-        elif end - begin > 75:  # such gait cycles have captured multiple gait cycles
+        elif end - begin > max_length:  # such gait cycles have captured multiple gait cycles
             middle = (begin + end) // 2
             gait_cycles.append(video_keypoints[begin:middle])
             gait_cycles.append(video_keypoints[middle:end])
@@ -198,9 +199,11 @@ def main():
     if len(sys.argv) < 2:
         print("Please provide the dataset version.")
         print("Usage: python gait_extractor.py <dataset_version>")
+        print("Dataset Version: 1 or 2")
         sys.exit(1)
 
     dataset_ver = int(sys.argv[1])
+    assert dataset_ver in [1, 2], f"Invalid dataset version: {dataset_ver}. Allowed values: 1, 2."
 
     # containers
     peak_lengths = []
@@ -230,7 +233,8 @@ def main():
 
             # store gait cycles
             peak_lengths.append(len(peaks))
-            gait_lengths, num_gaits = storeGAITCycles(f"data/final_keypoints/{video}/kypts.npy", peaks,
+            gait_lengths, num_gaits = storeGAITCycles(dataset_ver,
+                                                      f"data/final_keypoints/{video}/kypts.npy", peaks,
                                                       non_overlapping=True)
 
             if num_gaits == 0:
@@ -238,7 +242,6 @@ def main():
             ovr_gait_lengths.extend(gait_lengths)
             gaits.append(num_gaits)
     else:
-        assert dataset_ver == 2, f"Invalid dataset version: {dataset_ver}."
         for idx in range(40):
             # find peaks
             peaks, plot_list = findPeaks(idx, dataset_ver)
@@ -251,7 +254,8 @@ def main():
 
             # store gait cycles
             peak_lengths.append(len(peaks))
-            gait_lengths, num_gaits = storeGAITCycles(f"data/V2/keypoints/{idx}.npy", peaks,
+            gait_lengths, num_gaits = storeGAITCycles(dataset_ver,
+                                                      f"data/V2/keypoints/{idx}.npy", peaks,
                                                       non_overlapping=True)
 
             if num_gaits == 0:
