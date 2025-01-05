@@ -85,7 +85,7 @@ Please create an issue if you need some functionality or the code doesn't work a
 
 ## Citation
 ```bibtex
-@misc{bania2024atgcngraphconvolutionalnetwork,
+@misc{bania2024atgcn,
       title={AtGCN: A Graph Convolutional Network For Ataxic Gait Detection}, 
       author={Karan Bania and Tanmay Verlekar},
       year={2024},
