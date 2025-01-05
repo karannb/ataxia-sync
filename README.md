@@ -27,7 +27,7 @@ Maximum number of gait cycles: zz
 Number of gait cycles: abc
 Minimum length of gait cycle: xx at yy
 Average length of gait cycle: xy.z
-Maximum length of gait cycle: zz
+Maximum length of gait cycle: zz at yy
 ```
 4. Finally, we create CSV files from which we can quickly retrieve data and use it in our training loop, you can use `create_csvs.py` from the `preprocess/` directory to create these CSV files, in our format.
 
