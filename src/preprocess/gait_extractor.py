@@ -5,6 +5,9 @@ The pipeline is:
     using the L2-norm, then applies `movingAverageFilter` and a Savgol filter.
 2. `findPeaks` finds the peaks in the difference using `find_peaks` from `scipy.signal`.
 3. `storeGAITCycles` stores the gait cycles in a numpy array.
+
+This is the second preprocessing setp for both datasets, before this we extract keypoints 
+from videos.
 """
 
 import re
@@ -16,7 +19,7 @@ import matplotlib.pyplot as plt
 from scipy.signal import savgol_filter, find_peaks
 
 
-PLOT=True
+PLOT=True # turn off if you don't want to plot (we enabled this to find hyperparameters)
 
 
 def movingAverageFilter(data: np.ndarray, N: int) -> List:

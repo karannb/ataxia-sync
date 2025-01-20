@@ -1,6 +1,8 @@
 """
-This module is uesd to preprocess the V2 dataset, it creates .npy files from the CSVs
-using `csv2npy`.
+This module is uesd to preprocess the V2 dataset, it creates .npy files (present natively) 
+from the CSVs using `csv2npy`.
+
+This is the first preprocessing step for the V2 dataset.
 """
 
 import os

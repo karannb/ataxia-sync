@@ -404,9 +404,19 @@ def trainer():
             model = MLP(task=train_args.task)
         elif model_args.model_type == "stgcn":
             model = TruncatedSTGCN(model_args.layer_num, model_args.use_mlp,
-                                   train_args.task, model_args.freeze_encoder)
+                                   train_args.task, model_args.freeze_encoder,
+                                   dataset_ver=train_args.dataset_ver)
             if model_args.ckpt_path != 'None':
                 state_dict = torch.load(model_args.ckpt_path)
+                # certain weights are shape sensitive to the data-format, 
+                # since our graph is different in the second dataset, we 
+                # remove the weights that are not compatible.
+                # (only the preprocessing parts are affected)
+                if train_args.dataset_ver == 2:
+                    for key in ["A", "data_bn.weight", "data_bn.bias", "data_bn.running_mean", "data_bn.running_var"]:
+                        state_dict.pop(key, None)
+                    for num in range(10):
+                        state_dict.pop(f"edge_importance.{num}", None)
                 model.load_state_dict(state_dict, strict=False)  # strict=False because we are loading a subset of the model
         elif model_args.model_type == "resgcn":
             assert train_args.dataset_ver == 1, "Gait Graph experiments are only supported for dataset V1."

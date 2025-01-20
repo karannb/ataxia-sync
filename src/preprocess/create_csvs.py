@@ -1,3 +1,12 @@
+"""
+This module creates the CSV files for the dataset. 
+The CSV files are used to load the data into the PyTorch Dataset class.
+This helps for fast data loading and shuffling.
+
+This is the final preprocessing step before training the model,
+so other preprocessing steps should be completed before running this script.
+"""
+
 import os
 import sys
 import pandas as pd
