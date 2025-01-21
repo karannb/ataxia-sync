@@ -93,7 +93,6 @@ def get10Folds(train_val_inds, shuffle: bool = True) -> Tuple[List[List[int]],
 
 
 def getTrainValTest(df: pd.DataFrame, task: str,
-                    num_test: int,
                     do_test_split: bool = False, 
                     shuffle: bool = True) -> Tuple[List[List[int]], 
                                                    List[List[int]], 
@@ -104,7 +103,6 @@ def getTrainValTest(df: pd.DataFrame, task: str,
     Args:
         df (pd.DataFrame): DataFrame containing the data.
         task (str): The task being optimized for (classification/regression).
-        num_test (int): Number of gait cycles to be used for testing.
         do_test_split (bool, optional): Whether to split the data into testing set or not. Defaults to False.
         shuffle (bool, optional): To shuffle the indices or not. Defaults to True.
 
@@ -113,7 +111,6 @@ def getTrainValTest(df: pd.DataFrame, task: str,
         test_inds = [] if do_test_split is False.
     """
     if do_test_split:
-        assert num_test % 2 == 0, f"Number of test samples should be even, to ensure balanced classes. Got {num_test}."
         print("We validated our research through 10 fold cross-validation.")
         print("Thus, we do not recommend using a separate holdout set for evaluation.")
         if task == "classification":

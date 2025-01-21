@@ -18,6 +18,11 @@ from src.dataset import ATAXIADataset
 from models.atgcn import TruncatedSTGCN, TruncatedResGCN
 from src.utils import seedAll, getTrainValTest, evaluate, pLog
 
+try:
+    import wandb
+except ImportError:
+    print("W&B is not installed. This will throw an error if --with_tracking is set to True.")
+
 
 class TrainArgs:
     # logging params
@@ -313,10 +318,6 @@ def trainer():
 
     # Parse the arguments
     train_args, model_args = parse_args()
-
-    # Logging params and files
-    if train_args.with_tracking:
-        import wandb
 
     if train_args.task == "classification":
         ovr_results = {"Test Accuracy": [], "Test F1": [], "Test AUC": []}

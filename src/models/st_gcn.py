@@ -2,8 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from models.utils.tgcn import ConvTemporalGraphical
 from models.utils.graph import Graph
+from models.utils.tgcn import ConvTemporalGraphical
 
 
 class Model(nn.Module):

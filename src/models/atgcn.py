@@ -1,6 +1,9 @@
 """
 This code has been adapted from https://github.com/yysijie/st-gcn 
 to match the truncation discussed in section 3.4 of the paper.
+
+TODO: Currently, the model does an entire forward pass and then extracts the required hidden state,
+this is redundant and can be optimized for a small speedup.
 """
 
 import sys
