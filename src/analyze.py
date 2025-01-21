@@ -1,6 +1,6 @@
-'''
+"""
 This file holds the code for plotting and analyzing the results of the experiments.
-'''
+"""
 import sys
 sys.path.append("./")
 
@@ -19,6 +19,7 @@ from src.dataset import ATAXIADataset
 from matplotlib.ticker import MaxNLocator
 from sklearn.metrics import ConfusionMatrixDisplay
 from models.atgcn import TruncatedSTGCN, TruncatedResGCN
+
 
 @torch.no_grad()
 def getPredsAndTargets(model, loader, device) -> Tuple[List, List]:

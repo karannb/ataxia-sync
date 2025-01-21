@@ -99,11 +99,10 @@ class Model(nn.Module):
         # global pooling
         x = F.avg_pool2d(x, x.size()[2:])
         x = x.view(N, M, -1, 1, 1).mean(dim=1)
-        hidden_states[-1] = x
 
         # prediction
         x = self.fcn(x)
-        x = x.view(x.size(0), -1)
+        x = x.view(x.size(0), -1) # this is the hidden_states[-1]
 
         if self.return_hidden_states:
             return x, hidden_states
@@ -214,4 +213,5 @@ class st_gcn(nn.Module):
         x, A = self.gcn(x, A)
         x = self.tcn(x) + res
 
+        # also return the hidden states
         return self.relu(x), A, x

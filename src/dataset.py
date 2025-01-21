@@ -1,16 +1,19 @@
+"""
+This module contains the dataset wrapper for the datasets we use, both V1 and V2.
+"""
 import torch
 import numpy as np
 import pandas as pd
 from torch.utils.data import Dataset
 
-from typing import Tuple
+from typing import Tuple, List
 
 
 class ATAXIADataset(Dataset):
 
     def __init__(self,
                  dataset_ver,
-                 inds=None,
+                 inds: List,
                  task="classification",
                  data_path="data",
                  csv_name="all_gait",
@@ -18,11 +21,12 @@ class ATAXIADataset(Dataset):
         """
         Args:
             dataset_ver (int): The version of the dataset to be used.
-            inds (_type_, optional): The indices of the data to be used. Defaults to None.
+            inds (List): The indices of the data to be used.
             task (str, optional): The task to be performed. (classification or regression) Defaults to "classification".
             data_path (str, optional): The path to the data directory. Defaults to "data".
             csv_name (str, optional): The name of the csv file containing the data. Defaults to "all_gait".
             model (str, optional): The model to be used (one of stgcn or resgcn). Defaults to "stgcn".
+            This is required to create proper graph structure for the model.
 
         Raises:
             NotImplementedError: in case the task is passed incorrectly, i.e., something other than 
@@ -61,9 +65,9 @@ class ATAXIADataset(Dataset):
             data = cycle.copy()
             max_length = 75 if dataset_ver == 1 else 120
             while data.shape[0] < max_length:
-                # repeat the gait cycle to make it 75 frames
+                # repeat the gait cycle to make it mac_length frames
                 data = np.concatenate([data, cycle], axis=0)
-            data = data[:max_length]  # clip the gait cycle to 75 frames
+            data = data[:max_length]  # clip the gait cycle to mac_length frames
             self.data.append(data)
             self.labels.append(label)
 

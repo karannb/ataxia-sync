@@ -47,7 +47,7 @@ class ModelArgs:
     layer_num: int = 4
     use_mlp: bool = False
     freeze_encoder: bool = False
-    ckpt_path: str = "models/st_gcn.kinetics.pt"
+    ckpt_path: str = "ckpts/st_gcn.kinetics.pt"
 
 
 def parse_args() -> Tuple[TrainArgs, ModelArgs]:

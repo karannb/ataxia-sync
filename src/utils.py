@@ -32,10 +32,31 @@ def seedAll(seed: int):
     return
 
 
+def pLog(to_print: str, logs: List[io.TextIOWrapper]):
+    """
+    Print and log the message.
+
+    Args:
+        to_print (str): Message to be printed and logged.
+        logs (List[io.TextIOWrapper]): List of log files where the message is to be logged.
+    """
+    # print with new-line
+    if to_print[-1] != "\n":
+        to_print += "\n"
+    for log in logs:
+        log.write(to_print)
+        log.flush()
+    print(to_print, end="")
+
+
 def get10Folds(train_val_inds, shuffle: bool = True) -> Tuple[List[List[int]], 
-                                                                List[List[int]]]:
+                                                              List[List[int]]]:
     """
     Splits the data into 10 folds for cross-validation.
+
+
+    DO NOT CALL THIS FUNCTION DIRECTLY. USE `getTrainValTest` INSTEAD.
+
 
     Args:
         train_val_inds (_type_): List of indices to be split into 10 folds.
@@ -72,6 +93,7 @@ def get10Folds(train_val_inds, shuffle: bool = True) -> Tuple[List[List[int]],
 
 
 def getTrainValTest(df: pd.DataFrame, task: str,
+                    num_test: int,
                     do_test_split: bool = False, 
                     shuffle: bool = True) -> Tuple[List[List[int]], 
                                                    List[List[int]], 
@@ -82,6 +104,7 @@ def getTrainValTest(df: pd.DataFrame, task: str,
     Args:
         df (pd.DataFrame): DataFrame containing the data.
         task (str): The task being optimized for (classification/regression).
+        num_test (int): Number of gait cycles to be used for testing.
         do_test_split (bool, optional): Whether to split the data into testing set or not. Defaults to False.
         shuffle (bool, optional): To shuffle the indices or not. Defaults to True.
 
@@ -90,6 +113,9 @@ def getTrainValTest(df: pd.DataFrame, task: str,
         test_inds = [] if do_test_split is False.
     """
     if do_test_split:
+        assert num_test % 2 == 0, f"Number of test samples should be even, to ensure balanced classes. Got {num_test}."
+        print("We validated our research through 10 fold cross-validation.")
+        print("Thus, we do not recommend using a separate holdout set for evaluation.")
         if task == "classification":
             # get the indices of the videos that have label 1 and 0
             # so that the holdout set is balanced
@@ -119,23 +145,6 @@ def getTrainValTest(df: pd.DataFrame, task: str,
     train_inds, val_inds = get10Folds(vids, shuffle)
 
     return train_inds, val_inds, test_inds
-
-
-def pLog(to_print: str, logs: List[io.TextIOWrapper]):
-    """
-    Print and log the message.
-
-    Args:
-        to_print (str): Message to be printed and logged.
-        logs (List[io.TextIOWrapper]): List of log files where the message is to be logged.
-    """
-    # print with new-line
-    if to_print[-1] != "\n":
-        to_print += "\n"
-    for log in logs:
-        log.write(to_print)
-        log.flush()
-    print(to_print, end="")
 
 
 def evaluate(preds: np.ndarray, labels: np.ndarray,
