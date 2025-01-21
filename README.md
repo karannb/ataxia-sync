@@ -11,10 +11,10 @@ To make our pipeline fuly reproducible, we provide all the code used and also in
 Please download the first dataset we have used from [here](https://github.com/ROC-HCI/Automated-Ataxia-Gait); if you want to use your own dataset, the same instructions as below follow.
 
 1. First create a folder named `data/` in the root directory of the project.
-2. Use the `FRCNN_OpenPose_SORT.ipynb` from the `preprocess/` directory on Google Colab to get keypoints of the patient, store these inside the `data/` directory in a folder named `final_keypoints/`. (Note: this step takes **~4 hours** for the 149 videos we had with a T4 GPU)
-3. Using these keypoints we can now extract *non-overlapping* gait cycles. To do this, run the `gait_extractor.py` script from the `preprocess/` directory. This will create a folder named `non_overlapping_gait_cycles/` inside the `data/` directory (or `gait_cycles/` if you want to extract overlapping gait cycles, we use non-overlapping gait-cycles in the paper and have not tested the overlapping case). Run with -
+2. Use the `FRCNN_OpenPose_SORT.ipynb` from the `src/preprocess/` directory on Google Colab to get keypoints of the patient, store these inside the `data/` directory in a folder named `final_keypoints/`. (Note: this step takes **~4 hours** for the 149 videos we had with a T4 GPU)
+3. Using these keypoints we can now extract *non-overlapping* gait cycles. To do this, run the `gait_extractor.py` script from the `src/preprocess/` directory. This will create a folder named `non_overlapping_gait_cycles/` inside the `data/` directory (or `gait_cycles/` if you want to extract overlapping gait cycles, we use non-overlapping gait-cycles in the paper and have not tested the overlapping case). Run with -
 ```bash
-python preprocess/gait_extractor.py 1
+python src/preprocess/gait_extractor.py 1
 ```
 This should print something like - 
 ```bash
@@ -27,21 +27,21 @@ Maximum number of gait cycles: zz
 Number of gait cycles: abc
 Minimum length of gait cycle: xx at yy
 Average length of gait cycle: xy.z
-Maximum length of gait cycle: zz
+Maximum length of gait cycle: zz at yy
 ```
-4. Finally, we create CSV files from which we can quickly retrieve data and use it in our training loop, you can use `create_csvs.py` from the `preprocess/` directory to create these CSV files, in our format.
+4. Finally, we create CSV files from which we can quickly retrieve data and use it in our training loop, you can use `create_csvs.py` from the `src/preprocess/` directory to create these CSV files, in our format.
 
-This will create the folder with all the files and extracted Gait Cycles (overlapping and non-overlapping, both).
+This will create the folder with all the files and extracted Gait Cycles (overlapping and non-overlapping, can do both).
 
 ## Data Preparation - V2
-We have another dataset of 40 videos, which can be downloaded from [here](https://data.mendeley.com/datasets/2vkk2r9tx3/1) / [paper](https://hisham246.github.io/uploads/iecbes2022khalil.pdf). This already has extracted keypoints. **NOTE:** according to current preprocessing, you can only use one dataset at a time, as the CSV files are overwritten. To switch between datasets, just rename the folders accordingly.
+We have another dataset of 40 videos, which can be downloaded from [here](https://data.mendeley.com/datasets/2vkk2r9tx3/1) / [paper](https://hisham246.github.io/uploads/iecbes2022khalil.pdf). This already has extracted keypoints. **NOTE:** according to current preprocessing, you can only use one dataset at a time, as the CSV files and folders are overwritten. To switch between datasets, just rename the folders accordingly.
 
-1. Use the `create_npy.py` from the `preprocess/` directory, which will store the keypoints in .npy files, we also add a **center** coordinate to the keypoints (last keypoint).
+1. Use the `create_npy.py` from the `src/preprocess/` directory, which will store the keypoints in .npy files and create a V2.csv file which contains a mapping of original files to assigned IDs and their labels, we also add a **center** coordinate to the keypoints (last keypoint).
 2. Then use the `gait_extractor.py` to extract non-overlapping gait cycles (will be saved similarly to the first dataset). Run with 
 ```bash
-python preprocess/gait_extractor.py 2
+python src/preprocess/gait_extractor.py 2
 ```
-3. Finally, create the CSV files using `create_csvs.py` from the `preprocess/` directory.
+3. Finally, create the CSV files using `create_csvs.py` from the `src/preprocess/` directory.
 
 A few notes on this dataset:
 - The dataset available online is the **augmented** version, we deaugment and use it in our case.
@@ -85,7 +85,7 @@ Please create an issue if you need some functionality or the code doesn't work a
 
 ## Citation
 ```bibtex
-@misc{bania2024atgcngraphconvolutionalnetwork,
+@misc{bania2024atgcn,
       title={AtGCN: A Graph Convolutional Network For Ataxic Gait Detection}, 
       author={Karan Bania and Tanmay Verlekar},
       year={2024},

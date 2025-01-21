@@ -18,6 +18,11 @@ from src.dataset import ATAXIADataset
 from models.atgcn import TruncatedSTGCN, TruncatedResGCN
 from src.utils import seedAll, getTrainValTest, evaluate, pLog
 
+try:
+    import wandb
+except ImportError:
+    print("W&B is not installed. This will throw an error if --with_tracking is set to True.")
+
 
 class TrainArgs:
     # logging params
@@ -26,6 +31,7 @@ class TrainArgs:
     log_every: int = 10
 
     # training params
+    dataset_ver: int = 1
     overlapping: bool = False
     do_test_split: bool = False
     task: str = "classification"
@@ -46,13 +52,14 @@ class ModelArgs:
     layer_num: int = 4
     use_mlp: bool = False
     freeze_encoder: bool = False
-    ckpt_path: str = "models/st_gcn.kinetics.pt"
+    ckpt_path: str = "ckpts/st_gcn.kinetics.pt"
 
 
 def parse_args() -> Tuple[TrainArgs, ModelArgs]:
     """
     Parse the arguments for the training and model.
     Available arguments are:
+        --dataset_ver: int, which dataset version to use (1 or 2).
         --with_tracking: bool, log to wandb or not. Default: False
         --log_every: int, log every log_every epochs. Default: 10
         --log_dir: str, where to log the results. Default: "save"
@@ -81,6 +88,11 @@ def parse_args() -> Tuple[TrainArgs, ModelArgs]:
     parser = ArgumentParser()
 
     # Logging params
+    parser.add_argument("--dataset_ver",
+                        type=int,
+                        required=True,
+                        choices=[1, 2],
+                        help="Dataset version to use (1 or 2).")
     parser.add_argument("--with_tracking",
                         default=False,
                         action="store_true",
@@ -181,6 +193,9 @@ def parse_args() -> Tuple[TrainArgs, ModelArgs]:
     args = parser.parse_args()
 
     train_args = TrainArgs()
+    train_args.dataset_ver = args.dataset_ver
+    if train_args.dataset_ver == 2:
+        print("Training from scratch.")
     train_args.with_tracking = args.with_tracking
     train_args.log_dir = args.log_dir
     train_args.overlapping = args.overlapping
@@ -212,7 +227,7 @@ def parse_args() -> Tuple[TrainArgs, ModelArgs]:
 @torch.no_grad()
 def validate(model: nn.Module, loader: DataLoader,
              task: str) -> Tuple[np.ndarray, np.ndarray, float]:
-    '''
+    """
     Validates the model on the given data.
     
     Args
@@ -232,7 +247,7 @@ def validate(model: nn.Module, loader: DataLoader,
         The true labels
     mean_loss: float
         The mean loss on the validation data.
-    '''
+    """
 
     model.eval()
     preds = []
@@ -263,7 +278,7 @@ def validate(model: nn.Module, loader: DataLoader,
 def train_step(model: nn.Module, loader: DataLoader,
                optimizer: torch.optim.Optimizer, criterion: nn.Module,
                task: str) -> float:
-    '''
+    """
     Trains the model for one epoch.
     
     Args
@@ -278,7 +293,7 @@ def train_step(model: nn.Module, loader: DataLoader,
         The loss function to be used.
     task: str
         The task to be performed. (classification/regression)
-    '''
+    """
 
     model.train()
     losses = []
@@ -304,17 +319,13 @@ def trainer():
     # Parse the arguments
     train_args, model_args = parse_args()
 
-    # Logging params and files
-    if train_args.with_tracking:
-        import wandb
-
     if train_args.task == "classification":
         ovr_results = {"Test Accuracy": [], "Test F1": [], "Test AUC": []}
     else:
         ovr_results = {"Test MSE": [], "Test MAE": [], "Test Pearson": []}
 
     # Create the directory for saving the logs and checkpoints
-    ovr_save_pth = f"task_{train_args.task}_frozen_encoder_{model_args.freeze_encoder}_shuffle_{train_args.shuffle}_epochs_{train_args.epochs}_seed_{train_args.seed}_lr_{train_args.lr}_bs_{train_args.batch_size}_wd_{train_args.weight_decay}_folds_{train_args.folds}_layer_{model_args.layer_num}_mlp_{model_args.use_mlp}/"
+    ovr_save_pth = f"dataset_{train_args.dataset_ver}_task_{train_args.task}_frozen_encoder_{model_args.freeze_encoder}_shuffle_{train_args.shuffle}_epochs_{train_args.epochs}_seed_{train_args.seed}_lr_{train_args.lr}_bs_{train_args.batch_size}_wd_{train_args.weight_decay}_folds_{train_args.folds}_layer_{model_args.layer_num}_mlp_{model_args.use_mlp}/"
 
     # In case the directories doesn't exist
     if not os.path.exists(train_args.log_dir):
@@ -335,7 +346,8 @@ def trainer():
     data = pd.read_csv("data/" + csv_name + ".csv", index_col=None)
 
     # Split the data
-    train_inds, val_inds, test_inds = getTrainValTest(data, train_args.task, train_args.do_test_split, train_args.shuffle)
+    train_inds, val_inds, test_inds = getTrainValTest(data, train_args.task, 
+                                                      train_args.do_test_split, train_args.shuffle)
 
     # Save the test indices if testing is enabled
     if train_args.do_test_split:
@@ -360,16 +372,16 @@ def trainer():
             pickle.dump((train_split, val_split), f)
 
         # Load data
-        train_data = ATAXIADataset(train_split, train_args.task, 
+        train_data = ATAXIADataset(train_args.dataset_ver, train_split, train_args.task, 
                                    csv_name=csv_name, 
                                    model=model_args.model_type)
-        val_data = ATAXIADataset(val_split, train_args.task, 
+        val_data = ATAXIADataset(train_args.dataset_ver, val_split, train_args.task, 
                                  csv_name=csv_name, 
                                  model=model_args.model_type)
 
         # create a test dataset if testing is enabled
         if train_args.do_test_split:
-            test_data = ATAXIADataset(test_inds, train_args.task, 
+            test_data = ATAXIADataset(train_args.dataset_ver, test_inds, train_args.task, 
                                       csv_name=csv_name, 
                                       model=model_args.model_type)
 
@@ -393,11 +405,22 @@ def trainer():
             model = MLP(task=train_args.task)
         elif model_args.model_type == "stgcn":
             model = TruncatedSTGCN(model_args.layer_num, model_args.use_mlp,
-                                   train_args.task, model_args.freeze_encoder)
+                                   train_args.task, model_args.freeze_encoder,
+                                   dataset_ver=train_args.dataset_ver)
             if model_args.ckpt_path != 'None':
                 state_dict = torch.load(model_args.ckpt_path)
+                # certain weights are shape sensitive to the data-format, 
+                # since our graph is different in the second dataset, we 
+                # remove the weights that are not compatible.
+                # (only the preprocessing parts are affected)
+                if train_args.dataset_ver == 2:
+                    for key in ["A", "data_bn.weight", "data_bn.bias", "data_bn.running_mean", "data_bn.running_var"]:
+                        state_dict.pop(key, None)
+                    for num in range(10):
+                        state_dict.pop(f"edge_importance.{num}", None)
                 model.load_state_dict(state_dict, strict=False)  # strict=False because we are loading a subset of the model
         elif model_args.model_type == "resgcn":
+            assert train_args.dataset_ver == 1, "Gait Graph experiments are only supported for dataset V1."
             model = TruncatedResGCN(model_args.layer_num, train_args.task, 
                                     model_args.freeze_encoder)
             if model_args.ckpt_path != 'None':

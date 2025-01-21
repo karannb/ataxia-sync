@@ -32,10 +32,31 @@ def seedAll(seed: int):
     return
 
 
+def pLog(to_print: str, logs: List[io.TextIOWrapper]):
+    """
+    Print and log the message.
+
+    Args:
+        to_print (str): Message to be printed and logged.
+        logs (List[io.TextIOWrapper]): List of log files where the message is to be logged.
+    """
+    # print with new-line
+    if to_print[-1] != "\n":
+        to_print += "\n"
+    for log in logs:
+        log.write(to_print)
+        log.flush()
+    print(to_print, end="")
+
+
 def get10Folds(train_val_inds, shuffle: bool = True) -> Tuple[List[List[int]], 
-                                                                List[List[int]]]:
+                                                              List[List[int]]]:
     """
     Splits the data into 10 folds for cross-validation.
+
+
+    DO NOT CALL THIS FUNCTION DIRECTLY. USE `getTrainValTest` INSTEAD.
+
 
     Args:
         train_val_inds (_type_): List of indices to be split into 10 folds.
@@ -72,10 +93,10 @@ def get10Folds(train_val_inds, shuffle: bool = True) -> Tuple[List[List[int]],
 
 
 def getTrainValTest(df: pd.DataFrame, task: str,
-                              do_test_split: bool = False, 
-                              shuffle: bool = True) -> Tuple[List[List[int]], 
-                                                             List[List[int]], 
-                                                             List[int]]:
+                    do_test_split: bool = False, 
+                    shuffle: bool = True) -> Tuple[List[List[int]], 
+                                                   List[List[int]], 
+                                                   List[int]]:
     """
     Splits the data into training, validation, and testing sets.
 
@@ -90,6 +111,8 @@ def getTrainValTest(df: pd.DataFrame, task: str,
         test_inds = [] if do_test_split is False.
     """
     if do_test_split:
+        print("We validated our research through 10 fold cross-validation.")
+        print("Thus, we do not recommend using a separate holdout set for evaluation.")
         if task == "classification":
             # get the indices of the videos that have label 1 and 0
             # so that the holdout set is balanced
@@ -119,25 +142,6 @@ def getTrainValTest(df: pd.DataFrame, task: str,
     train_inds, val_inds = get10Folds(vids, shuffle)
 
     return train_inds, val_inds, test_inds
-
-
-def pLog(to_print: str, logs: List[io.TextIOWrapper]):
-    """
-    Print and log the message.
-
-    Args:
-        to_print (str): Message to be printed and logged.
-        logs (List[io.TextIOWrapper]): List of log files where the message is to be logged.
-    """
-    # print with new-line
-    if to_print[-1] != "\n":
-        to_print += "\n"
-    for log in logs:
-        log.write(to_print)
-        log.flush()
-    print(to_print, end="")
-
-    return
 
 
 def evaluate(preds: np.ndarray, labels: np.ndarray,
@@ -173,10 +177,10 @@ def evaluate(preds: np.ndarray, labels: np.ndarray,
 
 
 def get_mean_and_std(csv_path: str, round_off=True):
-    '''
+    """
     Utility function to analyse the results from a directory,
     following our logging format.
-    '''
+    """
 
     csv = pd.read_csv(csv_path)
 
@@ -198,5 +202,3 @@ def get_mean_and_std(csv_path: str, round_off=True):
     new_df = pd.DataFrame({"Name": cols, "Mu": mus, "Sigma": sigmas})
 
     print(new_df)
-
-    return

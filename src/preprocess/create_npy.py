@@ -1,6 +1,8 @@
 """
-This module is uesd to preprocess the V2 dataset, it creates .npy files from the CSVs
-using `csv2npy`.
+This module is uesd to preprocess the V2 dataset, it creates .npy files (present natively) 
+from the CSVs using `csv2npy`.
+
+This is the first preprocessing step for the V2 dataset.
 """
 
 import os
@@ -14,7 +16,7 @@ random.seed(42)
 np.random.seed(42)
 
 
-def csv2npy(fname: str):
+def csv2npy(fname: str) -> np.ndarray:
     """
     Converts the V2 CSV files to npy arrays by aggregating the X, Y, Z coordinates
     and adding a center coordinate.
@@ -70,12 +72,18 @@ def main():
     # assign each video (total 40) a random number
     ids = np.random.permutation(40)
 
+    # create a dict to-be converted to a df and saved as csv
+    dict2csv = {"video": [], "idx": [], "label": []}
+
     # create the keypoints for the ataxic videos
     for i, csv in enumerate(sorted(os.listdir("data/V2/Cerebellar Ataxic Gait/ataxia_features"))):
         print(f"Processing {csv}...")
         arr = csv2npy(f"data/V2/Cerebellar Ataxic Gait/ataxia_features/{csv}")
         np.save(f"{keypoint_path}/{ids[i]}.npy", arr)
         print(f"Assigned ID: {ids[i]}")
+        dict2csv["video"].append(csv)
+        dict2csv["idx"].append(ids[i])
+        dict2csv["label"].append(1)
 
     # create the keypoints for the normal videos
     for i, csv in enumerate(sorted(os.listdir("data/V2/Normal Gait/normal_features"))):
@@ -83,7 +91,14 @@ def main():
         arr = csv2npy(f"data/V2/Normal Gait/normal_features/{csv}")
         np.save(f"{keypoint_path}/{ids[i+20]}.npy", arr)
         print(f"Assigned ID: {ids[i+20]}")
+        dict2csv["video"].append(csv)
+        dict2csv["idx"].append(ids[i+20])
+        dict2csv["label"].append(0)
 
+    # save the csv
+    df = pd.DataFrame.from_dict(dict2csv)
+    df = df.sort_values(by="idx") # shuffles the DataFrame
+    df.to_csv("data/V2.csv", index=False)
 
 if __name__ == "__main__":
     main()

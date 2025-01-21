@@ -1,6 +1,9 @@
 """
 This code has been adapted from https://github.com/yysijie/st-gcn 
 to match the truncation discussed in section 3.4 of the paper.
+
+TODO: Currently, the model does an entire forward pass and then extracts the required hidden state,
+this is redundant and can be optimized for a small speedup.
 """
 
 import sys
@@ -80,7 +83,7 @@ class TruncatedSTGCN(Model):
             in_channels=3,
             num_class=400,
             graph_args={
-                "layout": "openpose",
+                "layout": "openpose" if kwargs.pop("dataset_ver", 1) == 1 else "datasetV2",
                 "strategy": "spatial"
             },
             edge_importance_weighting=False if freeze_encoder else True,

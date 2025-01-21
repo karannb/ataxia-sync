@@ -1,10 +1,10 @@
-'''
+"""
 Taken as modified from https://github.com/yysijie/st-gcn 
 discussed in section 3.3 of the paper.
-'''
+"""
 import numpy as np
 
-class Graph():
+class Graph:
     """ The Graph to model the skeletons extracted by the openpose
 
     Args:
@@ -106,7 +106,7 @@ class Graph():
         # elif layout=='customer settings'
         #     pass
         else:
-            raise ValueError(f"Do Not Exist This Layout. {layout}")
+            raise ValueError(f"This Layout Does Not Exist. {layout}")
 
     def get_adjacency(self, strategy):
         valid_hop = range(0, self.max_hop + 1, self.dilation)
