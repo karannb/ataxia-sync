@@ -63,6 +63,14 @@ class Graph:
                              (0, 1), (6, 7)]
             self.edge = self_link + neighbor_link
             self.center = 12
+            # required for Gait-Graph
+            self.parts = [
+                np.array([0, 2, 4]),       # left_arm
+                np.array([1, 3, 5]),       # right_arm
+                np.array([6, 8, 10]),      # left_leg
+                np.array([7, 9, 11]),      # right_leg
+                np.array([0, 1, 6, 7, 12])  # torso + head
+            ]
         elif layout == 'resgcn':
             # from https://github.com/tteepe/GaitGraph/blob/e7a3995ad7253809ad7981ba2ff30c39961a6d1a/src/datasets/graph.py#L111
             # note when using resgcn the dataset will also permute / drop some joints to match the ordering required
@@ -73,7 +81,8 @@ class Graph:
                              (11, 13), (13, 15), (12, 14), (14, 16)]
             self.edge = self_link + neighbor_link
             self.center = 0
-            self.connect_joint = np.array([5, 0, 0, 1, 2, 0, 0, 5, 6, 7, 8, 5, 6, 11, 12, 13, 14])
+            # connect_joint is unused as the original paper added these for augmentation
+            # self.connect_joint = np.array([5, 0, 0, 1, 2, 0, 0, 5, 6, 7, 8, 5, 6, 11, 12, 13, 14])
             self.parts = [
                 np.array([5, 7, 9]),       # left_arm
                 np.array([6, 8, 10]),      # right_arm

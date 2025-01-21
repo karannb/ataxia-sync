@@ -346,7 +346,7 @@ def trainer():
     data = pd.read_csv("data/" + csv_name + ".csv", index_col=None)
 
     # Split the data
-    train_inds, val_inds, test_inds = getTrainValTest(data, train_args.task, 
+    train_inds, val_inds, test_inds = getTrainValTest(data, train_args.task, train_args.dataset_ver,
                                                       train_args.do_test_split, train_args.shuffle)
 
     # Save the test indices if testing is enabled
@@ -420,11 +420,17 @@ def trainer():
                         state_dict.pop(f"edge_importance.{num}", None)
                 model.load_state_dict(state_dict, strict=False)  # strict=False because we are loading a subset of the model
         elif model_args.model_type == "resgcn":
-            assert train_args.dataset_ver == 1, "Gait Graph experiments are only supported for dataset V1."
             model = TruncatedResGCN(model_args.layer_num, train_args.task, 
-                                    model_args.freeze_encoder)
+                                    model_args.freeze_encoder,
+                                    dataset_ver=train_args.dataset_ver)
             if model_args.ckpt_path != 'None':
                 state_dict = torch.load(model_args.ckpt_path)
+                # same as above, because the graph is different in the second dataset
+                # we remove the weights that are not compatible.
+                if train_args.dataset_ver == 2:
+                    for key in ["input_branches.0.A", "input_branches.0.layers.0.edge", "input_branches.0.layers.1.edge", "input_branches.0.layers.2.edge", 
+                                "main_stream.0.edge", "main_stream.1.edge", "main_stream.2.edge", "main_stream.3.edge", "A"]:
+                        state_dict.pop(key, None)
                 model.load_state_dict(state_dict, strict=False) # same, our model has a prediction head
 
         # print the number of trainable parameters

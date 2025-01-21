@@ -123,8 +123,23 @@ class ATAXIADataset(Dataset):
             # same logic as above
             self.data = self.data[:, :, :, :, np.newaxis]
             # (batch, T, V, channel, M)
-            self.data = np.transpose(self.data, (0, 3, 1, 2, 4))
-            # (batch, channel, T, V, M)
+
+            # however, note we don't shuffle anything to match the ordering
+            # this is because, 
+            # 1. we don't have all keypoints required present in the second dataset
+            # 2. because of this, we have to re-initialize the starting layers of 
+            # the model, now, it is impossible to tell how the left shoulder affected the
+            # 41st channel in the second layer and also match it here, so we don't
+            # reorder (pseudo reorder) to match the model's trained graph structure
+
+            if self.model == "stgcn":
+                self.data = np.transpose(self.data, (0, 3, 1, 2, 4))
+                # (batch, channel, T, V, M)
+            elif self.model == "resgcn":
+                self.data = self.data[:, :60] # clip to 60 frames
+                # now this expects a different format, (N, I, C, T, V)
+                # but similar to STGCN, I = M = 1
+                self.data = np.transpose(self.data, (0, 4, 3, 1, 2))
 
         # make torch tensor
         self.data = torch.tensor(self.data, dtype=torch.float32)

@@ -49,18 +49,19 @@ def pLog(to_print: str, logs: List[io.TextIOWrapper]):
     print(to_print, end="")
 
 
-def get10Folds(train_val_inds, shuffle: bool = True) -> Tuple[List[List[int]], 
-                                                              List[List[int]]]:
+def getKFolds(train_val_inds, k: int = 10, shuffle: bool = True) -> Tuple[List[List[int]], 
+                                                                          List[List[int]]]:
     """
-    Splits the data into 10 folds for cross-validation.
+    Splits the data into k folds for cross-validation.
 
 
     DO NOT CALL THIS FUNCTION DIRECTLY. USE `getTrainValTest` INSTEAD.
 
 
     Args:
-        train_val_inds (_type_): List of indices to be split into 10 folds.
-        shuffle (bool, optional): to shuffle the indices or not. (True by default) Defaults to True.
+        train_val_inds: List of indices to be split into 10 folds.
+        k (int, optional): Number of folds. Defaults to 10.
+        shuffle (bool, optional): to shuffle the indices or not. Defaults to True.
 
     Raises:
         NotImplementedError: is train_val_inds is not a List
@@ -79,7 +80,7 @@ def get10Folds(train_val_inds, shuffle: bool = True) -> Tuple[List[List[int]],
             random.shuffle(train_val_inds)
 
         # Split the data into 10 folds
-        for i in range(1, 11):
+        for i in range(1, k + 1):
             # Get the start and end indices for the validation set
             start_idx = int(0.1 * total * (i - 1))
             end_idx = int(0.1 * total * i)
@@ -93,16 +94,20 @@ def get10Folds(train_val_inds, shuffle: bool = True) -> Tuple[List[List[int]],
 
 
 def getTrainValTest(df: pd.DataFrame, task: str,
+                    dataset_ver: int = 1,
                     do_test_split: bool = False, 
                     shuffle: bool = True) -> Tuple[List[List[int]], 
                                                    List[List[int]], 
                                                    List[int]]:
     """
     Splits the data into training, validation, and testing sets.
+    Note dataset 2 has a different evaluation scheme, described in Section IV
+    https://hisham246.github.io/uploads/iecbes2022khalil.pdf.
 
     Args:
         df (pd.DataFrame): DataFrame containing the data.
         task (str): The task being optimized for (classification/regression).
+        dataset_ver (int, optional): The version of the dataset to be used. Defaults to 1.
         do_test_split (bool, optional): Whether to split the data into testing set or not. Defaults to False.
         shuffle (bool, optional): To shuffle the indices or not. Defaults to True.
 
@@ -112,7 +117,7 @@ def getTrainValTest(df: pd.DataFrame, task: str,
     """
     if do_test_split:
         print("We validated our research through 10 fold cross-validation.")
-        print("Thus, we do not recommend using a separate holdout set for evaluation.")
+        print("Thus, we do not endorse any results using a separate holdout set for evaluation.")
         if task == "classification":
             # get the indices of the videos that have label 1 and 0
             # so that the holdout set is balanced
@@ -139,7 +144,39 @@ def getTrainValTest(df: pd.DataFrame, task: str,
     vids = list(set(range(len(df))) - set(test_inds))
 
     # get the train and val splits
-    train_inds, val_inds = get10Folds(vids, shuffle)
+    if dataset_ver == 1:
+        train_inds, val_inds = getKFolds(vids, shuffle)
+    else:
+        assert test_inds == [], "Datset 2 requires do_test_split to be False."
+        # for fold 1 we keep split the ataxic and non-ataxic 
+        # videos of each person equally between the training 
+        # and validation sets
+        mapping = pd.read_csv("data/V2.csv")
+        train, val = [], []
+        for i in range(1, 21):
+            ataxic_id = mapping[mapping["video"] == f"ataxia_features_{i}.csv"]["idx"].values[0]
+            normal_id = mapping[mapping["video"] == f"normal_features_{i}.csv"]["idx"].values[0]
+            ataxic = df[(df["video"] == ataxic_id) & (df["label"] == 1)]["index"].tolist() # get the indices of the ataxic videos
+            normal = df[(df["video"] == normal_id) & (df["label"] == 0)]["index"].tolist() # get the indices of the normal videos
+            # make the splits deterministic for reproducibility
+            train.extend(ataxic[:len(ataxic)//2] + normal[:len(normal)//2])
+            val.extend(ataxic[len(ataxic)//2:] + normal[len(normal)//2:])
+
+        # these are folds 2-5
+        train_inds, val_inds = getKFolds(vids, 4, shuffle)
+        train_inds.insert(0, train)
+        val_inds.insert(0, val)
+
+        # also save for reproducibility 
+        # (seedAll is always called at the 
+        # start of an experiment, so this 
+        # is reproducible)
+        with open("data/V2_train_inds.txt", "w") as f:
+            for i in range(5):
+                f.write("Train " + str(i) + ":\n")
+                f.write(str(train_inds[i]) + "\n")
+                f.write("Val " + str(i) + ":\n")
+                f.write(str(val_inds[i]) + "\n")
 
     return train_inds, val_inds, test_inds
 

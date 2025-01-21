@@ -159,7 +159,8 @@ class TruncatedResGCN(ResGCN):
                        'structure': [1, 2, 2, 2], 
                        'block': 'Bottleneck', 
                        'reduction': 8})
-        graph = Graph(layout='resgcn', strategy='distance', max_hop=3)
+        graph = Graph(layout='resgcn' if kwargs.pop("dataset_ver", 1) == 1 else 'datasetV2',
+                      strategy='distance', max_hop=3)
         model_args = {
             "A": torch.tensor(graph.A, dtype=torch.float32, requires_grad=False),
             "num_class": 128,

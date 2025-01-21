@@ -45,7 +45,7 @@ python src/preprocess/gait_extractor.py 2
 
 A few notes on this dataset:
 - The dataset available online is the **augmented** version, we deaugment and use it in our case.
-- The authors report 31 augmentations + 1 original, however, their [implementation](https://github.com/hisham246/AtaxiaNet/tree/main) and the trend in the dataset observed by plotting shows original + 32 augmentations, so we divide the dataset by 33 and use the first \[x//33:\] frames per video.
+- The authors report 31 augmentations + 1 original, however, their [implementation](https://github.com/hisham246/AtaxiaNet/tree/main) and the trend in the dataset observed by plotting shows original + 32 augmentations, so we divide the dataset by 33 and use the first \[:x//33\] frames per video.
 
 
 ## Model checkpoints
