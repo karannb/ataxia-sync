@@ -2,6 +2,7 @@
 ![AtGCN](assets/atgcn.png)
 
 A lightweight Spatiotemporal GCN for Ataxia Detection.
+Official implementation for AtGCN, accepted to [AIME-2025](https://aime25.aimedicine.info/) as a full length paper + talk.
 
 [![arXiv](https://img.shields.io/badge/arXiv-2410.22862-b31b1b.svg)](https://arxiv.org/abs/2410.22862)
 
@@ -11,7 +12,7 @@ To make our pipeline fuly reproducible, we provide all the code used and also in
 Please download the first dataset we have used from [here](https://github.com/ROC-HCI/Automated-Ataxia-Gait); if you want to use your own dataset, the same instructions as below follow.
 
 1. First create a folder named `data/` in the root directory of the project.
-2. Use the `FRCNN_OpenPose_SORT.ipynb` from the `src/preprocess/` directory on Google Colab to get keypoints of the patient, store these inside the `data/` directory in a folder named `final_keypoints/`. (Note: this step takes **~4 hours** for the 149 videos we had with a T4 GPU)
+2. Use the notebooks, `FRCNN.ipynb`, `SORT.ipynb` and finally `OpenPose.ipynb` in this order from the `src/preprocess/` directory on Google Colab to get keypoints of all patients, store these inside the `data/` directory in a folder named `final_keypoints/`. (Note: this step takes **~4 hours** for the 149 videos we had using a T4 GPU)
 3. Using these keypoints we can now extract *non-overlapping* gait cycles. To do this, run the `gait_extractor.py` script from the `src/preprocess/` directory. This will create a folder named `non_overlapping_gait_cycles/` inside the `data/` directory (or `gait_cycles/` if you want to extract overlapping gait cycles, we use non-overlapping gait-cycles in the paper and have not tested the overlapping case). Run with -
 ```bash
 python src/preprocess/gait_extractor.py 1
@@ -84,6 +85,7 @@ python3 src/analyze.py
 Please create an issue if you need some functionality or the code doesn't work as intended. Thank you!
 
 ## Citation
+We will update this with a newer version soon, for now please use the following:
 ```bibtex
 @misc{bania2024atgcn,
       title={AtGCN: A Graph Convolutional Network For Ataxic Gait Detection}, 
