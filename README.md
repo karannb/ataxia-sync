@@ -8,6 +8,16 @@ Official implementation for AtGCN, accepted to [AIME-2025](https://aime25.aimedi
 
 To make our pipeline fuly reproducible, we provide all the code used and also instructions on how to reproduce.
 
+## Basic environment setup
+You can install the dependencies with these commands (We have used python 3.9.19)
+```bash
+pip install -r requirements.txt
+```
+OR if you use conda, then first run
+```bash
+conda create -n ataxia-sync python=3.9.19
+```
+
 ## Data Preparation - V1
 Please download the first dataset we have used from [here](https://github.com/ROC-HCI/Automated-Ataxia-Gait); if you want to use your own dataset, the same instructions as below follow.
 
@@ -56,14 +66,6 @@ We have already uploaded the required checkpoints inside `ckpts/`. These were ta
 
 
 ## Training
-First we need to install the dependencies (We have used python 3.9.19)
-```bash
-pip install -r requirements.txt
-```
-OR if you use conda, then first run
-```bash
-conda create -n ataxia-sync python=3.9.19
-```
 To train a model you can use the `runner.sh` with `sbatch` on an HPC or with `bash` on your local machine.
 ```bash
 bash runner.sh
