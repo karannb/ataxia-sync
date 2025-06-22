@@ -4,7 +4,8 @@
 A lightweight Spatiotemporal GCN for Ataxia Detection.
 Official implementation for AtGCN, accepted to [AIME-2025](https://aime25.aimedicine.info/) as a full length paper + talk.
 
-[![arXiv](https://img.shields.io/badge/arXiv-2410.22862-b31b1b.svg)](https://arxiv.org/abs/2410.22862)
+[![DOI](https://img.shields.io/badge/DOI-10.1007%2F978--3--031--95838--0__3-blue?style=flat&link=https://doi.org/10.1007/978-3-031-95838-0_3)](https://doi.org/10.1007/978-3-031-95838-0_3)
+
 
 To make our pipeline fuly reproducible, we provide all the code used and also instructions on how to reproduce.
 
