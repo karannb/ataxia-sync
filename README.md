@@ -23,7 +23,11 @@ Please download the first dataset we have used from [here](https://github.com/RO
 
 1. First create a folder named `data/` in the root directory of the project.
 2. Use the notebooks, `FRCNN.ipynb`, `SORT.ipynb` and finally `OpenPose.ipynb` in this order from the `src/preprocess/` directory on Google Colab to get keypoints of all patients, store these inside the `data/` directory in a folder named `final_keypoints/`. (Note: this step takes **~4 hours** for the 149 videos we had using a T4 GPU)
-3. Using these keypoints we can now extract *non-overlapping* gait cycles. To do this, run the `gait_extractor.py` script from the `src/preprocess/` directory. This will create a folder named `non_overlapping_gait_cycles/` inside the `data/` directory (or `gait_cycles/` if you want to extract overlapping gait cycles, we use non-overlapping gait-cycles in the paper and have not tested the overlapping case). Run with -
+3. Create `npy` files by running
+```bash
+python3 src/preprocess/create_npy.py 1
+```
+4. Using these keypoints we can now extract *non-overlapping* gait cycles. To do this, run the `gait_extractor.py` script from the `src/preprocess/` directory. This will create a folder named `non_overlapping_gait_cycles/` inside the `data/` directory (or `gait_cycles/` if you want to extract overlapping gait cycles, we use non-overlapping gait-cycles in the paper and have not tested the overlapping case). Run with -
 ```bash
 python src/preprocess/gait_extractor.py 1
 ```
@@ -40,7 +44,7 @@ Minimum length of gait cycle: xx at yy
 Average length of gait cycle: xy.z
 Maximum length of gait cycle: zz at yy
 ```
-4. Finally, we create CSV files from which we can quickly retrieve data and use it in our training loop, you can use `create_csvs.py` from the `src/preprocess/` directory to create these CSV files, in our format.
+5. Finally, we create CSV files from which we can quickly retrieve data and use it in our training loop, you can use `create_csvs.py` from the `src/preprocess/` directory to create these CSV files, in our format.
 
 This will create the folder with all the files and extracted Gait Cycles (overlapping and non-overlapping, can do both).
 
@@ -48,6 +52,9 @@ This will create the folder with all the files and extracted Gait Cycles (overla
 We have another dataset of 40 videos, which can be downloaded from [here](https://data.mendeley.com/datasets/2vkk2r9tx3/1) / [paper](https://hisham246.github.io/uploads/iecbes2022khalil.pdf). This already has extracted keypoints. **NOTE:** according to current preprocessing, you can only use one dataset at a time, as the CSV files and folders are overwritten. To switch between datasets, just rename the folders accordingly.
 
 1. Use the `create_npy.py` from the `src/preprocess/` directory, which will store the keypoints in .npy files and create a V2.csv file which contains a mapping of original files to assigned IDs and their labels, we also add a **center** coordinate to the keypoints (last keypoint).
+```bash
+python3 src/preprocess/create_npy.py 2
+```
 2. Then use the `gait_extractor.py` to extract non-overlapping gait cycles (will be saved similarly to the first dataset). Run with 
 ```bash
 python src/preprocess/gait_extractor.py 2
@@ -87,15 +94,20 @@ python3 src/analyze.py
 Please create an issue if you need some functionality or the code doesn't work as intended. Thank you!
 
 ## Citation
-We will update this with a newer version soon, for now please use the following:
 ```bibtex
-@misc{bania2024atgcn,
-      title={AtGCN: A Graph Convolutional Network For Ataxic Gait Detection}, 
-      author={Karan Bania and Tanmay Verlekar},
-      year={2024},
-      eprint={2410.22862},
-      archivePrefix={arXiv},
-      primaryClass={cs.CV},
-      url={https://arxiv.org/abs/2410.22862}, 
+@InProceedings{10.1007/978-3-031-95838-0_3,
+      author="Bania, Karan 
+      and Verlekar, Tanmay Tulsidas",
+      editor="Bellazzi, Riccardo
+      and Juarez Herrero, Jos{\'e} Manuel
+      and Sacchi, Lucia
+      and Zupan, Bla{\v{z}}",
+      title="AtGCN: A Lightweight Graph Convolutional Network for Ataxic Gait Detection",
+      booktitle="Artificial Intelligence in Medicine",
+      year="2025",
+      publisher="Springer Nature Switzerland",
+      address="Cham",
+      pages="22--32",
+      isbn="978-3-031-95838-0"
 }
 ```

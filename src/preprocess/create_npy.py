@@ -6,6 +6,8 @@ This is the first preprocessing step for the V2 dataset.
 """
 
 import os
+import sys
+import json
 import random
 import numpy as np
 import pandas as pd
@@ -62,43 +64,67 @@ def csv2npy(fname: str) -> np.ndarray:
     return arr
 
 
-def main():
+def main(dataset_ver: int = 2):
 
-    # create the keypoints directory
-    keypoint_path = "data/V2/keypoints/"
-    if not os.path.exists(keypoint_path):
-        os.makedirs(keypoint_path)
+    # make the npy file, otherwise keypoints are a list of json files
+    if dataset_ver == 1:
+        for identifier in range(151):
+            path = f"data/final_keypoints/{identifier}"
+            frames = sorted(os.listdir(path))
+            keypoints = []
+            for frame in frames:
+                with open(os.path.join(path, frame), "r") as f:
+                    data = json.load(f)
+                    keypoints.append(np.array(data["people"][0]["pose_keypoints_2d"]).reshape(-1, 3))
+            keypoints = np.array(keypoints)
+            if not os.path.exists(f"data/final_keypoints/{identifier}/kypts.npy"):
+                os.makedirs(f"data/final_keypoints/{identifier}", exist_ok=True)
+                np.save(f"data/final_keypoints/{identifier}/kypts.npy", keypoints)
 
-    # assign each video (total 40) a random number
-    ids = np.random.permutation(40)
+    else:
+        # create the keypoints directory
+        keypoint_path = "data/V2/keypoints/"
+        if not os.path.exists(keypoint_path):
+            os.makedirs(keypoint_path)
 
-    # create a dict to-be converted to a df and saved as csv
-    dict2csv = {"video": [], "idx": [], "label": []}
+        # assign each video (total 40) a random number
+        ids = np.random.permutation(40)
 
-    # create the keypoints for the ataxic videos
-    for i, csv in enumerate(sorted(os.listdir("data/V2/Cerebellar Ataxic Gait/ataxia_features"))):
-        print(f"Processing {csv}...")
-        arr = csv2npy(f"data/V2/Cerebellar Ataxic Gait/ataxia_features/{csv}")
-        np.save(f"{keypoint_path}/{ids[i]}.npy", arr)
-        print(f"Assigned ID: {ids[i]}")
-        dict2csv["video"].append(csv)
-        dict2csv["idx"].append(ids[i])
-        dict2csv["label"].append(1)
+        # create a dict to-be converted to a df and saved as csv
+        dict2csv = {"video": [], "idx": [], "label": []}
 
-    # create the keypoints for the normal videos
-    for i, csv in enumerate(sorted(os.listdir("data/V2/Normal Gait/normal_features"))):
-        print(f"Processing {csv}...")
-        arr = csv2npy(f"data/V2/Normal Gait/normal_features/{csv}")
-        np.save(f"{keypoint_path}/{ids[i+20]}.npy", arr)
-        print(f"Assigned ID: {ids[i+20]}")
-        dict2csv["video"].append(csv)
-        dict2csv["idx"].append(ids[i+20])
-        dict2csv["label"].append(0)
+        # create the keypoints for the ataxic videos
+        for i, csv in enumerate(sorted(os.listdir("data/V2/Cerebellar Ataxic Gait/ataxia_features"))):
+            print(f"Processing {csv}...")
+            arr = csv2npy(f"data/V2/Cerebellar Ataxic Gait/ataxia_features/{csv}")
+            np.save(f"{keypoint_path}/{ids[i]}.npy", arr)
+            print(f"Assigned ID: {ids[i]}")
+            dict2csv["video"].append(csv)
+            dict2csv["idx"].append(ids[i])
+            dict2csv["label"].append(1)
 
-    # save the csv
-    df = pd.DataFrame.from_dict(dict2csv)
-    df = df.sort_values(by="idx") # shuffles the DataFrame
-    df.to_csv("data/V2.csv", index=False)
+        # create the keypoints for the normal videos
+        for i, csv in enumerate(sorted(os.listdir("data/V2/Normal Gait/normal_features"))):
+            print(f"Processing {csv}...")
+            arr = csv2npy(f"data/V2/Normal Gait/normal_features/{csv}")
+            np.save(f"{keypoint_path}/{ids[i+20]}.npy", arr)
+            print(f"Assigned ID: {ids[i+20]}")
+            dict2csv["video"].append(csv)
+            dict2csv["idx"].append(ids[i+20])
+            dict2csv["label"].append(0)
+
+        # save the csv
+        df = pd.DataFrame.from_dict(dict2csv)
+        df = df.sort_values(by="idx") # shuffles the DataFrame
+        df.to_csv("data/V2.csv", index=False)
+
 
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) == 2:
+        dataset_ver = int(sys.argv[1])
+        main(dataset_ver)
+    else:
+        print("Usage: python create_npy.py <dataset_version>")
+        print("Dataset version 1: Original dataset with 151 videos.")
+        print("Dataset version 2: V2 dataset with 40 videos (20 ataxic, 20 normal).")
+        sys.exit(1)

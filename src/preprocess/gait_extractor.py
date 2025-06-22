@@ -6,13 +6,14 @@ The pipeline is:
 2. `findPeaks` finds the peaks in the difference using `find_peaks` from `scipy.signal`.
 3. `storeGAITCycles` stores the gait cycles in a numpy array.
 
-This is the second preprocessing setp for both datasets, before this we extract keypoints 
+This is the second preprocessing setp for both datasets, before this we extract keypoints
 from videos.
 """
 
 import re
 import os
 import sys
+import json
 import numpy as np
 from typing import List, Tuple
 import matplotlib.pyplot as plt
@@ -118,8 +119,8 @@ def findPeaks(identifier: int, dataset_ver: int = 1) -> List:
     if dataset_ver == 1:
         diffs = diffInKeypoints(f"data/final_keypoints/{identifier}/kypts.npy")
     else:
-        diffs = diffInKeypoints(f"data/V2/keypoints/{identifier}.npy", 
-                                keypoints=(10, 11), 
+        diffs = diffInKeypoints(f"data/V2/keypoints/{identifier}.npy",
+                                keypoints=(10, 11),
                                 xy=False)
 
     # find peaks
